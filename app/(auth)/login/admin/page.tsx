@@ -6,6 +6,7 @@ export default function AdminLoginPage() {
             role="admin"
             title="Administrador"
             description="Ingresa tus credenciales de administrador"
+            allowedRoles={["admin"]}
         />
     )
 }

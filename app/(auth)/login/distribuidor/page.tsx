@@ -6,6 +6,7 @@ export default function DistribuidorLoginPage() {
             role="distribuidor"
             title="Distribuidor"
             description="Acceso para distribuidores autorizados"
+            allowedRoles={["distribuidor"]}
         />
     )
 }

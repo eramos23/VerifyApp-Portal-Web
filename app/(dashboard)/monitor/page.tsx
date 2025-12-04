@@ -23,6 +23,7 @@ import {
     DialogFooter,
     DialogClose
 } from "@/components/ui/dialog"
+import { useLoadingStore } from "@/lib/store/useLoadingStore"
 
 export default function MonitorPage() {
     const { transactions, soundEnabled, setSoundEnabled } = useRealtimeTransactions()
@@ -37,6 +38,13 @@ export default function MonitorPage() {
     // Modals state
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+    const { setIsLoading } = useLoadingStore()
+
+    const handleLogout = async () => {
+        setIsLogoutOpen(false)
+        setIsLoading(true)
+        await signOut()
+    }
 
     // Update filtered transactions when real-time updates come in (if no filter active)
     useEffect(() => {
@@ -123,9 +131,8 @@ export default function MonitorPage() {
                 </div>
             </div>
 
-            {/* Admin Filters */}
             {role === 'admin' && (
-                <Card>
+                <Card className="border-none shadow-xl bg-white">
                     <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row gap-4 items-end">
                             <div className="grid gap-1.5">
@@ -147,7 +154,7 @@ export default function MonitorPage() {
                                 />
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={handleSearch}>
+                                <Button onClick={handleSearch} className="bg-[#0095e0] hover:bg-[#0095e0]/90 text-white">
                                     <Search className="mr-2 h-4 w-4" />
                                     Buscar
                                 </Button>
@@ -162,13 +169,13 @@ export default function MonitorPage() {
             )}
 
             {/* Table Section */}
-            <Card className="border-none shadow-none bg-transparent">
-                <CardHeader className="px-0">
+            <Card className="border-none shadow-xl bg-white overflow-hidden">
+                <CardHeader className="px-6 pt-6">
                     <CardTitle>
                         {startDate && endDate ? 'Resultados de Búsqueda' : 'Transacciones Recientes'}
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="px-0">
+                <CardContent className="px-6 pb-6">
                     <TransactionTable transactions={filteredTransactions} />
                 </CardContent>
             </Card>
@@ -196,7 +203,7 @@ export default function MonitorPage() {
                 </div>
 
                 {/* Main Button */}
-                <Button size="icon" className="h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90">
+                <Button size="icon" className="h-14 w-14 rounded-full shadow-xl bg-[#0095e0] hover:bg-[#0095e0]/90 text-white">
                     <MoreVertical className="h-6 w-6" />
                 </Button>
             </div>
@@ -248,7 +255,7 @@ export default function MonitorPage() {
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsLogoutOpen(false)}>Cancelar</Button>
-                        <Button variant="destructive" onClick={() => signOut()}>Cerrar Sesión</Button>
+                        <Button variant="destructive" onClick={handleLogout}>Cerrar Sesión</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

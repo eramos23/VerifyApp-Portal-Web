@@ -31,10 +31,7 @@ export default function ClientsPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Mis Clientes</h2>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Cliente
-                </Button>
+
             </div>
             <ClientTable clients={clients} />
         </div>

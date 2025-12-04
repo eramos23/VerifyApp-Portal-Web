@@ -6,6 +6,7 @@ export default function AyudanteLoginPage() {
             role="ayudante"
             title="Ayudante"
             description="Ingresa con tu número de teléfono"
+            allowedRoles={["ayudante"]}
         />
     )
 }

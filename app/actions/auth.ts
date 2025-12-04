@@ -5,27 +5,15 @@ import { redirect } from "next/navigation"
 import { cookies } from 'next/headers'
 
 export async function loginUser(formData: FormData) {
-    console.log("SERVER ACTION: loginUser START")
     const email = formData.get("email") as string
     const password = formData.get("password") as string
     const requiredRole = formData.get("role") as string
-
-    console.log("SERVER ACTION INPUT (loginUser):", {
-        email,
-        requiredRole,
-        passwordLength: password?.length
-    })
 
     const supabase = await createClient()
 
     const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-    })
-
-    console.log("SERVER ACTION OUTPUT (loginUser1):", {
-        data,
-        error
     })
 
     if (error) {
@@ -40,36 +28,24 @@ export async function loginUser(formData: FormData) {
         .select('rol')
         .eq('id', data.user.id)
         .single()
-    console.log("PROFILE==", {
-        profile,
-        profileError
-    })
+
     if (profileError || !profile) {
         await supabase.auth.signOut()
         return { error: "No se pudo verificar el perfil" }
     }
 
     // Strict role check
-    if (profile.rol !== requiredRole && profile.rol !== 'admin') {
-        // If user is admin, they might access other dashboards, but let's stick to strict for now unless it's the admin login
-        if (profile.rol !== requiredRole) {
-            await supabase.auth.signOut()
-            return { error: `No tienes permisos de ${requiredRole}` }
-        }
+    if (profile.rol !== requiredRole) {
+        await supabase.auth.signOut()
+        return { error: `No tienes permisos de ${requiredRole}` }
     }
 
     return { success: true, user: data.user, role: profile.rol }
 }
 
 export async function loginAyudante(formData: FormData) {
-    console.log("SERVER ACTION: loginAyudante START")
     const phone = formData.get("phone") as string
     const password = formData.get("password") as string
-
-    console.log("SERVER ACTION INPUT (loginAyudante):", {
-        phone,
-        passwordLength: password?.length
-    })
 
     const supabase = await createClient()
 
@@ -79,10 +55,6 @@ export async function loginAyudante(formData: FormData) {
         _password: password
     });
 
-    console.log("SERVER ACTION OUTPUT (loginAyudante):", {
-        data,
-        error
-    })
     if (error || !data) {
         return { error: "Credenciales inválidas" }
     }
