@@ -23,6 +23,7 @@ import Image from "next/image"
 import { useLoadingStore } from "@/lib/store/useLoadingStore"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 const formSchema = z.object({
     identifier: z.string().min(1, {
@@ -32,6 +33,8 @@ const formSchema = z.object({
     }),
     password: z.string().min(1, {
         message: "La contraseña es requerida.",
+    }).max(20, {
+        message: "La contraseña no puede tener más de 20 caracteres.",
     }).refine((val) => !/[;'"`]/.test(val) && !/\/\*/.test(val) && !/--/.test(val), {
         message: "Caracteres no permitidos detectados.",
     }),
@@ -218,6 +221,7 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                                                 type={showPassword ? "text" : "password"}
                                                 placeholder="******"
                                                 {...field}
+                                                maxLength={20}
                                                 className="focus-visible:ring-[#0095e0] pr-10"
                                             />
                                             <button
@@ -249,6 +253,15 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                         </Button>
                     </form>
                 </Form>
+                {/* Register Link for Distributor */}
+                {(role === 'distribuidor' || (rolesToShow.includes('distribuidor') && rolesToShow.length === 1)) && (
+                    <div className="mt-4 text-center text-sm">
+                        ¿No tienes una cuenta?{" "}
+                        <Link href="/register/distribuidor" className="text-[#0095e0] hover:underline">
+                            Créalo aquí
+                        </Link>
+                    </div>
+                )}
             </CardContent>
         </Card>
     )

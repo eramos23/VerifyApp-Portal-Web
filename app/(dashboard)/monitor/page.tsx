@@ -24,10 +24,13 @@ import {
     DialogClose
 } from "@/components/ui/dialog"
 import { useLoadingStore } from "@/lib/store/useLoadingStore"
+import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 export default function MonitorPage() {
     const { transactions, soundEnabled, setSoundEnabled } = useRealtimeTransactions()
     const { role, user } = useAuthStore()
+    const router = useRouter()
 
     // Filters for Admin
     const [startDate, setStartDate] = useState("")
@@ -44,6 +47,11 @@ export default function MonitorPage() {
         setIsLogoutOpen(false)
         setIsLoading(true)
         await signOut()
+        if (role === 'ayudante') {
+            router.push("/login/ayudante")
+        } else {
+            router.push("/login/admin")
+        }
     }
 
     // Update filtered transactions when real-time updates come in (if no filter active)
@@ -125,9 +133,19 @@ export default function MonitorPage() {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-red-600 animate-pulse font-semibold bg-red-100 px-3 py-1 rounded-full">
-                    <Radio className="h-4 w-4" />
-                    EN VIVO
+                <div className="flex items-center gap-4">
+                    <div className="relative w-24 h-24">
+                        <Image
+                            src="/logo.png"
+                            alt="Logo"
+                            fill
+                            className="object-contain"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 text-red-600 animate-pulse font-semibold bg-red-100 px-3 py-1 rounded-full">
+                        <Radio className="h-4 w-4" />
+                        EN VIVO
+                    </div>
                 </div>
             </div>
 

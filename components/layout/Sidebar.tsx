@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -35,6 +35,7 @@ import { useLoadingStore } from "@/lib/store/useLoadingStore"
 
 export function Sidebar() {
     const pathname = usePathname()
+    const router = useRouter()
     const { role } = useAuthStore()
     const { isSidebarCollapsed, toggleSidebar } = useUIStore()
     const { setIsLoading } = useLoadingStore()
@@ -44,6 +45,7 @@ export function Sidebar() {
         setIsLogoutOpen(false)
         setIsLoading(true)
         await signOut()
+        router.push("/login/distribuidor")
     }
 
     const routes = [

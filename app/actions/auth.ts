@@ -70,12 +70,44 @@ export async function loginAyudante(formData: FormData) {
     return { success: true, role: 'ayudante', user: data }
 }
 
+export async function registerDistribuidor(formData: FormData) {
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+    const fullName = formData.get("fullName") as string
+
+    const supabase = await createClient()
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+            data: {
+                nombre: fullName,
+                codigo_iso2: 'PE',
+                rol: 'distribuidor'
+            }
+        }
+    })
+
+    if (error) {
+        console.log(error)
+        if (error.code === 'user_already_exists') {
+            return { error: "El correo electrónico ya está registrado" }
+        }
+        return { error: error.message }
+    }
+
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+        return { error: "El usuario ya existe" }
+    }
+
+    return { success: true, user: data.user }
+}
+
 export async function signOut() {
     const supabase = await createClient()
     await supabase.auth.signOut()
 
     const cookieStore = await cookies()
     cookieStore.delete('ayudante_session')
-
-    redirect("/login/admin") // Or a general login page
 }
