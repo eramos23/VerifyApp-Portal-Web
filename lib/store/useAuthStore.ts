@@ -9,6 +9,7 @@ interface AuthState {
     setUser: (user: User | null) => void
     setRole: (role: 'admin' | 'ayudante' | 'distribuidor' | null) => void
     setLoading: (loading: boolean) => void
+    logout: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
             setUser: (user) => set({ user }),
             setRole: (role) => set({ role }),
             setLoading: (isLoading) => set({ isLoading }),
+            logout: () => set({ user: null, role: null, isLoading: false }),
         }),
         {
             name: 'auth-storage',

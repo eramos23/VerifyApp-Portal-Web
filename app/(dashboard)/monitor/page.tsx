@@ -1,17 +1,30 @@
 "use client"
 
-import { useRealtimeTransactions } from "@/lib/hooks/useRealtimeTransactions"
-import { TransactionTable } from "@/components/dashboard/TransactionTable"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Volume2, VolumeX, Download, Search, LogOut, Bell, BellOff, Settings, MoreVertical, Radio } from "lucide-react"
-import * as XLSX from 'xlsx'
-import { useAuthStore } from "@/lib/store/useAuthStore"
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { supabase } from "@/lib/supabase/client"
+import { useAuthStore } from "@/lib/store/useAuthStore"
+import { useLoadingStore } from "@/lib/store/useLoadingStore"
+import { toast } from "sonner"
+import { TransactionTable } from "@/components/dashboard/TransactionTable"
+import { useRealtimeTransactions } from "@/lib/hooks/useRealtimeTransactions"
+import { Transaction } from "@/types/transaction"
+import { DateTime } from "luxon"
+
+import { NotificationItem, transactionToNotificationItem, realtimeTransactionToNotificationItem } from "@/lib/utils/transaction-mapper"
+import * as XLSX from 'xlsx-js-style'
+import { signOut } from "@/app/actions/auth"
+
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
-import { signOut } from "@/app/actions/auth"
 import { Switch } from "@/components/ui/switch"
 import {
     Dialog,
@@ -19,34 +32,156 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogFooter,
-    DialogClose
 } from "@/components/ui/dialog"
-import { useLoadingStore } from "@/lib/store/useLoadingStore"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
+import { LogOut, Settings, Search, Download, ChevronDown, ChevronUp, MoreVertical, Volume2, VolumeX, Bell, BellOff, Radio } from "lucide-react"
 
 export default function MonitorPage() {
-    const { transactions, soundEnabled, setSoundEnabled } = useRealtimeTransactions()
-    const { role, user } = useAuthStore()
+    const { role, user, logout } = useAuthStore()
     const router = useRouter()
+    const { setIsLoading } = useLoadingStore()
+
+    // State for transactions
+    const [transactions, setTransactions] = useState<NotificationItem[]>([])
+    const [rawTransactions, setRawTransactions] = useState<Transaction[]>([])
+    const [soundEnabled, setSoundEnabled] = useState(false)
+    const [highlightedId, setHighlightedId] = useState<string | null>(null)
+    const [isFiltersOpen, setIsFiltersOpen] = useState(true)
+
+    // Get today's date in Lima Timezone
+    const nowLima = DateTime.now().setZone("America/Lima")
+    const today = nowLima.toFormat("yyyy-MM-dd")
 
     // Filters for Admin
-    const [startDate, setStartDate] = useState("")
-    const [endDate, setEndDate] = useState("")
-    const [filteredTransactions, setFilteredTransactions] = useState(transactions)
+    const [startDate, setStartDate] = useState(today)
+    const [endDate, setEndDate] = useState(today)
+    const [queryParams, setQueryParams] = useState({ start: today, end: today }) // Decoupled state for fetching
     const [desktopNotifications, setDesktopNotifications] = useState(false)
+
+    // Export Warning Modal State
+    const [isExportWarningOpen, setIsExportWarningOpen] = useState(false)
+
+    // Determine Admin ID
+    const adminId = role === 'admin' ? user?.id : (user as any)?.usuario_id
+
+    // Initial Fetch & Filter Effect
+    useEffect(() => {
+        const fetchTransactions = async () => {
+            if (!adminId) return
+
+            setIsLoading(true) // Start loading
+
+            try {
+                // Construct start and end dates in Lima Timezone
+                // If queryParams.start is provided, use it. Otherwise default to today in Lima.
+                // We parse the YYYY-MM-DD string as being in America/Lima.
+                const startDT = queryParams.start
+                    ? DateTime.fromISO(queryParams.start, { zone: "America/Lima" }).startOf('day')
+                    : nowLima.startOf('day')
+
+                const endDT = queryParams.end
+                    ? DateTime.fromISO(queryParams.end, { zone: "America/Lima" }).endOf('day')
+                    : nowLima.endOf('day')
+
+                console.log("FECHAS CONSULTA AL SERVIDOR (LIMA):", {
+                    startDate: startDT.toString(),
+                    endDate: endDT.toString()
+                })
+
+                // Convert to UTC ISO strings for Postgres
+                const p_start_date = startDT.toUTC().toISO()
+                const p_end_date = endDT.toUTC().toISO()
+
+                console.log("FECHAS CONSULTA AL SERVIDOR (UTC):", {
+                    startDate: p_start_date,
+                    endDate: p_end_date
+                })
+                const { data, error } = await supabase
+                    .rpc('get_transactions_by_date', {
+                        p_user_id: adminId,
+                        p_start_date: startDT.toString(),
+                        p_end_date: endDT.toString()
+                    })
+
+                if (error) {
+                    console.error("Error fetching transactions:", error)
+                    toast.error("Error al cargar transacciones")
+                } else {
+                    console.log("2FEHAS CONSULTA ====", data)
+                    // Map raw transactions to NotificationItems
+                    const rawData = (data || []) as Transaction[]
+                    setRawTransactions(rawData)
+                    const mappedTransactions = rawData.map((t: Transaction) => transactionToNotificationItem(t))
+                    console.log(mappedTransactions)
+                    setTransactions(mappedTransactions)
+                }
+            } catch (error) {
+                console.error("Unexpected error:", error)
+                toast.error("Error inesperado")
+            } finally {
+                setIsLoading(false) // Stop loading
+            }
+        }
+
+        fetchTransactions()
+    }, [adminId, queryParams, setIsLoading])
+
+    // Realtime Hook
+    const { isConnected } = useRealtimeTransactions(adminId, (newTransaction) => {
+        try {
+            // Map new transaction using realtime mapper
+            const mappedTransaction = realtimeTransactionToNotificationItem(newTransaction)
+
+            // Only add to table if we are viewing "Today"
+            console.log("🔍 CHECKING DATE CONDITION:", { endDate, today, match: endDate === today })
+
+            if (endDate === today) {
+                console.log("✅ CONDITION MET: Adding transaction to table")
+                setTransactions((prev) => [mappedTransaction, ...prev])
+                setRawTransactions((prev) => [newTransaction, ...prev])
+
+                // Trigger highlight
+                setHighlightedId(mappedTransaction.id)
+                setTimeout(() => setHighlightedId(null), 3000)
+            } else {
+                console.log("❌ CONDITION FAILED: Not adding to table")
+            }
+
+            if (soundEnabled) {
+                const audio = new Audio('/audio/yape_sonido.mp3')
+                audio.play().catch(e => console.error("Audio play failed", e))
+            }
+
+            toast.success(`Nueva transacción: ${mappedTransaction.moneda} ${mappedTransaction.monto}`)
+        } catch (error) {
+            console.error("Error processing realtime transaction:", error)
+        }
+    })
+
+    // Load sound preference from localStorage
+    useEffect(() => {
+        const savedSound = localStorage.getItem('soundEnabled')
+        if (savedSound !== null) {
+            setSoundEnabled(savedSound === 'true')
+        }
+    }, [])
+
+    const handleSoundChange = (enabled: boolean) => {
+        setSoundEnabled(enabled)
+        localStorage.setItem('soundEnabled', String(enabled))
+    }
 
     // Modals state
     const [isConfigOpen, setIsConfigOpen] = useState(false)
     const [isLogoutOpen, setIsLogoutOpen] = useState(false)
-    const { setIsLoading } = useLoadingStore()
+
+
 
     const handleLogout = async () => {
         setIsLogoutOpen(false)
         setIsLoading(true)
         await signOut()
+        logout() // Clear client-side store
         if (role === 'ayudante') {
             router.push("/login/ayudante")
         } else {
@@ -54,42 +189,105 @@ export default function MonitorPage() {
         }
     }
 
-    // Update filtered transactions when real-time updates come in (if no filter active)
-    useEffect(() => {
-        if (!startDate && !endDate) {
-            setFilteredTransactions(transactions)
-        }
-    }, [transactions, startDate, endDate])
-
     const handleSearch = () => {
         if (!startDate || !endDate) {
             toast.error("Seleccione ambas fechas")
             return
         }
-        if (new Date(startDate) > new Date(endDate)) {
+
+        // Validation
+        if (startDate > endDate) {
             toast.error("La fecha de inicio no puede ser mayor a la fecha fin")
             return
         }
+        if (startDate > today) {
+            toast.error("La fecha de inicio no puede ser mayor a hoy")
+            return
+        }
+        if (endDate > today) {
+            toast.error("La fecha fin no puede ser mayor a hoy")
+            return
+        }
 
-        const start = new Date(startDate)
-        start.setHours(0, 0, 0, 0)
-        const end = new Date(endDate)
-        end.setHours(23, 59, 59, 999)
+        // Trigger fetch via useEffect
+        setQueryParams({ start: startDate, end: endDate })
+    }
 
-        const filtered = transactions.filter(t => {
-            const tDate = new Date(t.fecha)
-            return tDate >= start && tDate <= end
-        })
-        setFilteredTransactions(filtered)
-        toast.success(`Se encontraron ${filtered.length} transacciones`)
+    const handleExportClick = () => {
+        if (rawTransactions.length === 0) {
+            toast.error("No hay datos para exportar")
+            return
+        }
+        setIsExportWarningOpen(true)
     }
 
     const handleExport = () => {
-        const dataToExport = startDate && endDate ? filteredTransactions : transactions
-        const ws = XLSX.utils.json_to_sheet(dataToExport)
+        setIsExportWarningOpen(false)
+
+        // Prepare data for Excel
+        const dataToExport = rawTransactions.map(t => {
+            const mapped = transactionToNotificationItem(t)
+            const mensaje = t.mensaje_original ? t.mensaje_original.split('|')[1] || '' : ''
+
+            return {
+                "Remitente": mapped.nombre,
+                "Fecha": mapped.fecha,
+                "Monto": `${mapped.moneda} ${mapped.monto}`,
+                "Código Pago": mapped.codigoPago,
+                "Mensaje": mensaje
+            }
+        })
+
+        // Create workbook and worksheet
         const wb = XLSX.utils.book_new()
+        const ws = XLSX.utils.aoa_to_sheet([[`Transacciones - ${startDate} y ${endDate}`]])
+
+        // Add data starting from A2
+        XLSX.utils.sheet_add_json(ws, dataToExport, { origin: "A2" })
+
+        // Merge title cells
+        if (!ws['!merges']) ws['!merges'] = []
+        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } })
+
+        // Styles
+        // Title Style (A1)
+        if (!ws['A1'].s) ws['A1'].s = {}
+        ws['A1'].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" }, sz: 14 },
+            fill: { fgColor: { rgb: "0095E0" } }, // Yape Blue
+            alignment: { horizontal: "center", vertical: "center" }
+        }
+
+        // Apply borders to all cells
+        const range = XLSX.utils.decode_range(ws['!ref']!)
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = XLSX.utils.encode_cell({ r: R, c: C })
+                if (!ws[cell_address]) continue
+                if (!ws[cell_address].s) ws[cell_address].s = {}
+
+                // Keep existing styles if any (like title), merge borders
+                ws[cell_address].s.border = {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                }
+            }
+        }
+
+        // Autosize columns (approximate)
+        const wscols = [
+            { wch: 25 }, // Remitente
+            { wch: 20 }, // Fecha
+            { wch: 15 }, // Monto
+            { wch: 15 }, // Codigo
+            { wch: 68 }  // Mensaje
+        ]
+        ws['!cols'] = wscols
+
         XLSX.utils.book_append_sheet(wb, ws, "Transacciones")
-        XLSX.writeFile(wb, "transacciones.xlsx")
+        XLSX.writeFile(wb, `transacciones_${startDate}_${endDate}.xlsx`)
     }
 
     const requestNotificationPermission = async () => {
@@ -118,11 +316,18 @@ export default function MonitorPage() {
         }
     }
 
+    // Calculate Total Amount
+    const totalAmount = rawTransactions.reduce((sum, t) => {
+        const amount = Number(t.monto) || 0
+        return sum + amount
+    }, 0).toFixed(2)
+
     // Admin Name (Fallback to email if name not available)
     const adminName = user?.user_metadata?.nombre || user?.email || "Usuario"
 
     return (
         <div className="p-8 space-y-6 max-w-7xl mx-auto relative min-h-screen">
+            {/* Header */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
@@ -142,59 +347,90 @@ export default function MonitorPage() {
                             className="object-contain"
                         />
                     </div>
-                    <div className="flex items-center gap-2 text-red-600 animate-pulse font-semibold bg-red-100 px-3 py-1 rounded-full">
+                    <div className={`flex items-center gap-2 font-semibold px-3 py-1 rounded-full ${isConnected ? 'bg-green-100 text-green-600 animate-pulse' : 'bg-red-100 text-red-600'}`}>
                         <Radio className="h-4 w-4" />
-                        EN VIVO
+                        {isConnected ? 'CONECTADO' : 'NO CONECTADO'}
                     </div>
                 </div>
             </div>
 
-            {role === 'admin' && (
-                <Card className="border-none shadow-xl bg-white">
-                    <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row gap-4 items-end">
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="start">Fecha Inicio</Label>
+            {/* Filters Card */}
+            <Card className="border-none shadow-xl bg-white">
+                <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-lg font-semibold text-gray-800">Filtros de Búsqueda</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => setIsFiltersOpen(!isFiltersOpen)}>
+                        {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                </CardHeader>
+                {isFiltersOpen && (
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                            <div className="space-y-2">
+                                <Label htmlFor="start-date" className="text-sm font-medium text-gray-700">Fecha Inicio</Label>
                                 <Input
-                                    id="start"
+                                    id="start-date"
                                     type="date"
+                                    required
+                                    max={today}
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
+                                    className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="end">Fecha Fin</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor="end-date" className="text-sm font-medium text-gray-700">Fecha Fin</Label>
                                 <Input
-                                    id="end"
+                                    id="end-date"
                                     type="date"
+                                    required
+                                    min={startDate}
+                                    max={today}
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
+                                    className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
                                 />
                             </div>
-                            <div className="flex gap-2">
-                                <Button onClick={handleSearch} className="bg-[#0095e0] hover:bg-[#0095e0]/90 text-white">
+                            <div className="flex gap-3">
+                                <Button
+                                    className="flex-1 bg-[#0095e0] hover:bg-[#007bb8] text-white shadow-sm"
+                                    onClick={handleSearch}
+                                >
                                     <Search className="mr-2 h-4 w-4" />
                                     Buscar
                                 </Button>
-                                <Button variant="outline" onClick={handleExport}>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
+                                    onClick={handleExportClick}
+                                >
                                     <Download className="mr-2 h-4 w-4" />
                                     Excel
                                 </Button>
                             </div>
                         </div>
                     </CardContent>
-                </Card>
-            )}
+                )}
+            </Card>
 
             {/* Table Section */}
             <Card className="border-none shadow-xl bg-white overflow-hidden">
-                <CardHeader className="px-6 pt-6">
-                    <CardTitle>
+                <CardHeader className="px-6 pt-6 flex flex-row items-center justify-between">
+                    <CardTitle className="flex items-center">
                         {startDate && endDate ? 'Resultados de Búsqueda' : 'Transacciones Recientes'}
+                        <span className="text-muted-foreground font-normal text-base ml-2">
+                            {transactions.length} Registros
+                        </span>
                     </CardTitle>
+                    <div className="bg-gray-100 px-4 py-2 rounded-lg flex items-center gap-1">
+                        <span className="text-xl font-bold text-gray-900">Total:</span>
+                        <span className="text-lg font-medium text-gray-700">S/ {totalAmount}</span>
+                    </div>
                 </CardHeader>
-                <CardContent className="px-6 pb-6">
-                    <TransactionTable transactions={filteredTransactions} />
+                <CardContent className="px-6">
+                    <TransactionTable
+                        transactions={transactions}
+                        highlightedId={highlightedId}
+                    />
                 </CardContent>
             </Card>
 
@@ -244,7 +480,7 @@ export default function MonitorPage() {
                             <Switch
                                 id="sound-mode"
                                 checked={soundEnabled}
-                                onCheckedChange={setSoundEnabled}
+                                onCheckedChange={handleSoundChange}
                             />
                         </div>
                         <div className="flex items-center justify-between">
@@ -274,6 +510,25 @@ export default function MonitorPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsLogoutOpen(false)}>Cancelar</Button>
                         <Button variant="destructive" onClick={handleLogout}>Cerrar Sesión</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Export Warning Modal */}
+            <Dialog open={isExportWarningOpen} onOpenChange={setIsExportWarningOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-amber-600 flex items-center gap-2">
+                            ⚠️ Advertencia Importante
+                        </DialogTitle>
+                        <DialogDescription className="pt-4 text-base text-gray-700">
+                            Esta hoja de excel solo es informativa, no para hacer cálculos o tomar decisiones numéricas.
+                            Para más seguridad le recomendamos descargarlo desde la misma aplicación (Yape, Plin, etc).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsExportWarningOpen(false)}>Cancelar</Button>
+                        <Button className="bg-[#0095e0] hover:bg-[#007bb8]" onClick={handleExport}>Entendido, Descargar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

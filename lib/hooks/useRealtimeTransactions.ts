@@ -1,68 +1,69 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
-export interface Transaction {
-    id: string
-    monto: number
-    fecha: string
-    estado: string
-    cliente_id: string
-    // Add other fields as needed
-}
+import { Transaction } from "@/types/transaction"
 
-export function useRealtimeTransactions() {
-    const [transactions, setTransactions] = useState<Transaction[]>([])
-    const [soundEnabled, setSoundEnabled] = useState(false)
+export function useRealtimeTransactions(adminId: string | undefined, onData: (data: Transaction) => void) {
+    const [isConnected, setIsConnected] = useState(false)
+
+    const onDataRef = useRef(onData)
 
     useEffect(() => {
-        // Initial fetch
-        const fetchTransactions = async () => {
-            const { data, error } = await supabase
-                .from('transacciones') // Ensure this table exists in 'notificacion' schema or public? User said schema 'notificacion'
-                .select('*')
-                .order('fecha', { ascending: false })
-                .limit(50)
+        onDataRef.current = onData
+    }, [onData])
 
-            if (error) {
-                console.error("Error fetching transactions:", error)
-            } else {
-                setTransactions(data || [])
-            }
-        }
+    useEffect(() => {
+        if (!adminId) return
 
-        fetchTransactions()
+        console.log(`Subscribing to channel: transactions-${adminId}`)
+        setIsConnected(false)
 
-        // Realtime subscription
         const channel = supabase
-            .channel('realtime-transactions')
+            .channel(`transactions-${adminId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
-                    schema: 'notificacion',
+                    schema: 'notificacion', // Reverted to 'notificacion' per user confirmation
                     table: 'transacciones',
+                    filter: `id_usuario=eq.${adminId}`
                 },
                 (payload) => {
-                    const newTransaction = payload.new as Transaction
-                    setTransactions((prev) => [newTransaction, ...prev])
-
-                    if (soundEnabled) {
-                        const audio = new Audio('/notification.mp3') // Need to add this file
-                        audio.play().catch(e => console.error("Audio play failed", e))
+                    console.log("🔥 REALTIME EVENT RECEIVED:", payload)
+                    console.log("New transaction payload:", payload.new)
+                    if (onDataRef.current) {
+                        try {
+                            onDataRef.current(payload.new as Transaction)
+                        } catch (err) {
+                            console.error("Error in onData callback:", err)
+                        }
+                    } else {
+                        console.warn("onDataRef is null")
                     }
-
-                    toast.success(`Nueva transacción: ${newTransaction.monto}`)
                 }
             )
-            .subscribe()
+            .subscribe((status, err) => {
+                console.log(`Subscription status for transactions-${adminId}:`, status)
+                if (err) {
+                    console.error("Subscription error:", err)
+                }
+                if (status === 'SUBSCRIBED') {
+                    setIsConnected(true)
+                    toast.success("Conexión en tiempo real establecida")
+                } else {
+                    setIsConnected(false)
+                }
+            })
 
         return () => {
+            console.log(`Unsubscribing from channel: transactions-${adminId}`)
             supabase.removeChannel(channel)
+            setIsConnected(false)
         }
-    }, [soundEnabled])
+    }, [adminId])
 
-    return { transactions, soundEnabled, setSoundEnabled }
+    return { isConnected }
 }
