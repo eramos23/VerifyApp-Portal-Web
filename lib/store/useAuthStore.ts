@@ -2,11 +2,20 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User } from '@supabase/supabase-js'
 
+export interface AyudanteUser {
+    success: boolean
+    message: string
+    token: string
+    ayudante_id: string
+    id_admin: string
+    zona_horaria: string
+}
+
 interface AuthState {
-    user: User | null
+    user: User | AyudanteUser | null
     role: 'admin' | 'ayudante' | 'distribuidor' | null
     isLoading: boolean
-    setUser: (user: User | null) => void
+    setUser: (user: User | AyudanteUser | null) => void
     setRole: (role: 'admin' | 'ayudante' | 'distribuidor' | null) => void
     setLoading: (loading: boolean) => void
     logout: () => void

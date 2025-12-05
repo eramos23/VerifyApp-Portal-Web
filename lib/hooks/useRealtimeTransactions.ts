@@ -3,31 +3,69 @@
 import { useEffect, useState, useRef } from "react"
 import { supabase } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { useAuthStore } from "@/lib/store/useAuthStore"
 
 import { Transaction } from "@/types/transaction"
 
+import { createClient } from '@supabase/supabase-js'
+
+// ... imports
+
 export function useRealtimeTransactions(adminId: string | undefined, onData: (data: Transaction) => void) {
     const [isConnected, setIsConnected] = useState(false)
-
     const onDataRef = useRef(onData)
 
     useEffect(() => {
         onDataRef.current = onData
     }, [onData])
 
-    useEffect(() => {
-        if (!adminId) return
+    const { user, role } = useAuthStore()
 
-        console.log(`Subscribing to channel: transactions-${adminId}`)
+    useEffect(() => {
+        if (!adminId) {
+            console.log("❌ useRealtimeTransactions: adminId is missing")
+            return
+        }
+
+        let client = supabase // Default to global client
+
+        // If Ayudante, create a dedicated client with the token
+        if (role === 'ayudante' && user && 'token' in user) {
+            console.log("🔐 Creating dedicated Supabase client for Ayudante")
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+            client = createClient(supabaseUrl, supabaseAnonKey, {
+                db: {
+                    schema: 'notificacion',
+                },
+                global: {
+                    headers: {
+                        Authorization: `Bearer ${user.token}`,
+                        'Accept-Profile': 'notificacion',
+                        'Content-Profile': 'notificacion'
+                    }
+                },
+                realtime: {
+                    params: {
+                        eventsPerSecond: 10,
+                    },
+                },
+            })
+            // Explicitly set auth for realtime socket
+            client.realtime.setAuth(user.token)
+        }
+
+        console.log(`🔌 Subscribing to channel: transactions-${adminId}`)
         setIsConnected(false)
 
-        const channel = supabase
+        const channel = client
             .channel(`transactions-${adminId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
-                    schema: 'notificacion', // Reverted to 'notificacion' per user confirmation
+                    schema: 'notificacion',
                     table: 'transacciones',
                     filter: `id_usuario=eq.${adminId}`
                 },
@@ -46,9 +84,9 @@ export function useRealtimeTransactions(adminId: string | undefined, onData: (da
                 }
             )
             .subscribe((status, err) => {
-                console.log(`Subscription status for transactions-${adminId}:`, status)
+                console.log(`📡 Subscription status for transactions-${adminId}:`, status)
                 if (err) {
-                    console.error("Subscription error:", err)
+                    console.error("❌ Subscription error:", err)
                 }
                 if (status === 'SUBSCRIBED') {
                     setIsConnected(true)
@@ -59,11 +97,11 @@ export function useRealtimeTransactions(adminId: string | undefined, onData: (da
             })
 
         return () => {
-            console.log(`Unsubscribing from channel: transactions-${adminId}`)
-            supabase.removeChannel(channel)
+            console.log(`🔌 Unsubscribing from channel: transactions-${adminId}`)
+            client.removeChannel(channel)
             setIsConnected(false)
         }
-    }, [adminId])
+    }, [adminId, role, user])
 
     return { isConnected }
 }

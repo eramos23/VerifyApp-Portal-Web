@@ -55,6 +55,7 @@ export async function loginAyudante(formData: FormData) {
         _password: password
     });
 
+    console.log("[AYUDANTE] Datos de Ayudante", data)
     if (error || !data) {
         return { error: "Credenciales inválidas" }
     }
@@ -66,6 +67,7 @@ export async function loginAyudante(formData: FormData) {
         secure: process.env.NODE_ENV === 'production',
         maxAge: 60 * 60 * 24 // 1 day
     })
+
 
     return { success: true, role: 'ayudante', user: data }
 }
