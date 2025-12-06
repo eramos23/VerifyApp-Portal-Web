@@ -14,6 +14,8 @@ import { TransactionRepository } from "@/lib/repositories/transaction.repository
 import { NotificationItem, transactionToNotificationItem, realtimeTransactionToNotificationItem } from "@/lib/utils/transaction-mapper"
 import * as XLSX from 'xlsx-js-style'
 import { signOut } from "@/app/actions/auth"
+import { ProfileRepository } from "@/lib/repositories/profile.repository"
+import { RefreshCw } from "lucide-react"
 
 import {
     Card,
@@ -46,6 +48,8 @@ export function AdminMonitorPanel() {
     const [soundEnabled, setSoundEnabled] = useState(false)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
     const [isFiltersOpen, setIsFiltersOpen] = useState(true)
+    const [profileConfig, setProfileConfig] = useState<{ nombre: string, showSearchFilter: boolean }>({ nombre: '', showSearchFilter: true })
+    const [refreshTrigger, setRefreshTrigger] = useState(0)
 
     // Get today's date in Lima Timezone
     const nowLima = DateTime.now().setZone("America/Lima")
@@ -97,7 +101,22 @@ export function AdminMonitorPanel() {
         }
 
         fetchTransactions()
-    }, [adminId, queryParams, setIsLoading])
+    }, [adminId, queryParams, setIsLoading, refreshTrigger])
+
+    // Fetch Profile Config
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!adminId) return
+            const profile = await ProfileRepository.getAdminName(adminId)
+            if (profile) {
+                setProfileConfig({
+                    nombre: profile.nombre || '',
+                    showSearchFilter: profile.filtro_busqueda_web ?? true // Default to true if null
+                })
+            }
+        }
+        fetchProfile()
+    }, [adminId])
 
     // Realtime Hook
     const { isConnected } = useRealtimeTransactions(adminId, (newTransaction) => {
@@ -115,7 +134,12 @@ export function AdminMonitorPanel() {
 
             if (soundEnabled) {
                 const audio = new Audio('/audio/yape_sonido.mp3')
-                audio.play().catch(e => console.error("Audio play failed", e))
+                audio.play().catch(e => {
+                    console.error("Audio play failed", e)
+                    if (e.name === 'NotAllowedError') {
+                        toast.warning("Haga clic en la página para habilitar el sonido de notificaciones")
+                    }
+                })
             }
 
             toast.success(`Nueva transacción: ${mappedTransaction.moneda} ${mappedTransaction.monto}`)
@@ -277,11 +301,25 @@ export function AdminMonitorPanel() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        Monitor de Pagos
+                        Monitor de Pagos {profileConfig.nombre ? `de ${profileConfig.nombre}` : ''}
                     </h2>
-                    <p className="text-muted-foreground">
-                        Panel de Administración
-                    </p>
+                    {!profileConfig.showSearchFilter && (
+                        <div className="mt-2">
+                            <Button
+                                size="sm"
+                                className="gap-2 bg-[#0095e0] hover:bg-[#007bb8] text-white shadow-sm"
+                                onClick={() => {
+                                    setStartDate(today)
+                                    setEndDate(today)
+                                    setQueryParams({ start: today, end: today })
+                                    setRefreshTrigger(prev => prev + 1)
+                                }}
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Actualizar Hoy
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -301,62 +339,64 @@ export function AdminMonitorPanel() {
             </div>
 
             {/* Filters Card */}
-            <Card className="border-none shadow-xl bg-white">
-                <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-lg font-semibold text-gray-800">Filtros de Búsqueda</CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => setIsFiltersOpen(!isFiltersOpen)}>
-                        {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                </CardHeader>
-                {isFiltersOpen && (
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                            <div className="space-y-2">
-                                <Label htmlFor="start-date" className="text-sm font-medium text-gray-700">Fecha Inicio</Label>
-                                <Input
-                                    id="start-date"
-                                    type="date"
-                                    required
-                                    max={today}
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
-                                />
+            {profileConfig.showSearchFilter && (
+                <Card className="border-none shadow-xl bg-white">
+                    <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+                        <CardTitle className="text-lg font-semibold text-gray-800">Filtros de Búsqueda</CardTitle>
+                        <Button variant="ghost" size="sm" onClick={() => setIsFiltersOpen(!isFiltersOpen)}>
+                            {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                    </CardHeader>
+                    {isFiltersOpen && (
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                                <div className="space-y-2">
+                                    <Label htmlFor="start-date" className="text-sm font-medium text-gray-700">Fecha Inicio</Label>
+                                    <Input
+                                        id="start-date"
+                                        type="date"
+                                        required
+                                        max={today}
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="end-date" className="text-sm font-medium text-gray-700">Fecha Fin</Label>
+                                    <Input
+                                        id="end-date"
+                                        type="date"
+                                        required
+                                        min={startDate}
+                                        max={today}
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                                <div className="flex gap-3">
+                                    <Button
+                                        className="flex-1 bg-[#0095e0] hover:bg-[#007bb8] text-white shadow-sm"
+                                        onClick={handleSearch}
+                                    >
+                                        <Search className="mr-2 h-4 w-4" />
+                                        Buscar
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
+                                        onClick={handleExportClick}
+                                    >
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Excel
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="end-date" className="text-sm font-medium text-gray-700">Fecha Fin</Label>
-                                <Input
-                                    id="end-date"
-                                    type="date"
-                                    required
-                                    min={startDate}
-                                    max={today}
-                                    value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="bg-gray-50 border-gray-200 focus:ring-blue-500 focus:border-blue-500"
-                                />
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    className="flex-1 bg-[#0095e0] hover:bg-[#007bb8] text-white shadow-sm"
-                                    onClick={handleSearch}
-                                >
-                                    <Search className="mr-2 h-4 w-4" />
-                                    Buscar
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="flex-1 border-green-600 text-green-600 hover:bg-green-50"
-                                    onClick={handleExportClick}
-                                >
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Excel
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                )}
-            </Card>
+                        </CardContent>
+                    )}
+                </Card>
+            )}
 
             {/* Table Section */}
             <Card className="border-none shadow-xl bg-white overflow-hidden">
