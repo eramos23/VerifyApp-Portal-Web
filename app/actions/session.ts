@@ -20,9 +20,9 @@ export async function checkSession() {
     }
 
     const cookieStore = await cookies()
-    if (cookieStore.get('ayudante_session')) {
-        return { isAuthenticated: true, role: 'ayudante' }
-    }
+    // if (cookieStore.get('ayudante_session')) {
+    //     return { isAuthenticated: true, role: 'ayudante' }
+    // }
 
     return { isAuthenticated: false, role: null }
 }

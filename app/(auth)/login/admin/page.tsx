@@ -13,22 +13,18 @@ export default function AdminLoginPage() {
 
     useEffect(() => {
         const verifyAndRedirect = async () => {
-            if (user && role) {
-                const session = await checkSession()
-                if (session.isAuthenticated && session.role === role) {
-                    if (role === 'admin' || role === 'ayudante') {
-                        router.push('/monitor')
-                    } else if (role === 'distribuidor') {
-                        router.push('/dashboard/distribuidor')
-                    }
-                } else {
-                    // Session is invalid or mismatch, clear store
-                    logout()
+            const session = await checkSession()
+            if (session.isAuthenticated && session.role) {
+                if (session.role === 'admin') {
+                    router.push('/monitor')
+                } else if (session.role === 'distribuidor') {
+                    router.push('/distribuidor')
                 }
+                // Ayudante logic disabled
             }
         }
         verifyAndRedirect()
-    }, [user, role, router, logout])
+    }, [router])
 
     return (
         <LoginForm

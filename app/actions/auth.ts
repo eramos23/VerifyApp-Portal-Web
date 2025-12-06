@@ -60,6 +60,11 @@ export async function loginAyudante(formData: FormData) {
         return { error: "Credenciales inválidas" }
     }
 
+    await supabase.auth.setSession({
+        access_token: data.token,
+        refresh_token: ""
+    })
+
     // Set custom session cookie for Ayudante
     const cookieStore = await cookies()
     cookieStore.set('ayudante_session', 'true', {

@@ -58,12 +58,15 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes logic
     const path = request.nextUrl.pathname
+    console.log(`[Middleware] Path: ${path}, User: ${user?.id}`)
 
     // Admin/Ayudante routes
     if (path.startsWith('/monitor')) {
-        const ayudanteSession = request.cookies.get('ayudante_session')
+        // const ayudanteSession = request.cookies.get('ayudante_session') <--- DESHABILITADO
 
-        if (!user && !ayudanteSession) {
+        // Si es ayudante intentando entrar, mostrar 404 (o dejar que falle el check de usuario y redirija a login admin)
+        // Por ahora, solo verificamos 'user' (Admin)
+        if (!user /* && !ayudanteSession */) {
             return NextResponse.redirect(new URL('/login/admin', request.url))
         }
     }

@@ -117,7 +117,7 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                     toast.success("Bienvenido Ayudante")
                     setAuthRole('ayudante')
                     setAuthUser(result.user || null)
-                    router.push("/monitor")
+                    // router.push("/monitor") <--- DESHABILITADO TEMPORALMENTE
                 }
             } else {
                 const result = await loginUser(formData)

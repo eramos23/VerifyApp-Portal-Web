@@ -1,5 +1,12 @@
 "use client"
 
+import { notFound } from "next/navigation"
+
+export default function AyudanteLoginPage() {
+    return notFound()
+}
+
+/*
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/lib/store/useAuthStore"
@@ -18,8 +25,10 @@ export default function AyudanteLoginPage() {
                 // For Ayudante, user might be null in store if we only stored role, but let's assume consistent store usage
                 // Actually checkSession returns role 'ayudante' if cookie exists
                 if (session.isAuthenticated && session.role === role) {
-                    if (role === 'admin' || role === 'ayudante') {
+                    if (role === 'admin') {
                         router.push('/monitor')
+                    } else if (role === 'ayudante') {
+                         // router.push('/monitor') <--- DESHABILITADO TEMPORALMENTE
                     } else if (role === 'distribuidor') {
                         router.push('/dashboard/distribuidor')
                     }
@@ -40,3 +49,4 @@ export default function AyudanteLoginPage() {
         />
     )
 }
+*/

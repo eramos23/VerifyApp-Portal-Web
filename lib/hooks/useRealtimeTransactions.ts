@@ -43,20 +43,26 @@ export function useRealtimeTransactions(adminId: string | undefined, onData: (da
                     headers: {
                         Authorization: `Bearer ${user.token}`,
                         'Accept-Profile': 'notificacion',
-                        'Content-Profile': 'notificacion'
+                        'Content-Profile': 'notificacion',
+                        apikey: supabaseAnonKey,
                     }
                 },
                 realtime: {
                     params: {
                         eventsPerSecond: 10,
+                        apikey: supabaseAnonKey,
                     },
                 },
             })
             // Explicitly set auth for realtime socket
             client.realtime.setAuth(user.token)
+        } else {
+            // For Admin, ensure we are using the global client's auth state
+            // The global client automatically handles auth state for Realtime if logged in properly via supabase.auth
+            console.log("🔒 Admin using Global Client")
         }
 
-        console.log(`🔌 Subscribing to channel: transactions-${adminId}`)
+        console.log(`🔌 Subscribing to channel: transactions-${adminId} with auth: ${role === 'ayudante' ? 'Custom Client' : 'Global Client'}`)
         setIsConnected(false)
 
         const channel = client
