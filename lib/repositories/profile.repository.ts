@@ -18,5 +18,33 @@ export const ProfileRepository = {
             nombre: adminProfile.nombre,
             filtro_busqueda_web: adminProfile.filtro_busqueda_web
         }
+    },
+
+    async getProfile(userId: string) {
+        const { data, error } = await supabase
+            .schema('notificacion')
+            .from('perfil')
+            .select('nombre, telefono_contacto')
+            .eq('id', userId)
+            .single()
+
+        if (error) {
+            console.error("Error getting profile:", error)
+            return null
+        }
+
+        return data
+    },
+
+    async updateProfile(userId: string, data: { nombre: string, telefono_contacto: string }) {
+        const { error } = await supabase
+            .schema('notificacion')
+            .from('perfil')
+            .update(data)
+            .eq('id', userId)
+
+        if (error) {
+            throw error
+        }
     }
 }
