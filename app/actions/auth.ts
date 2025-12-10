@@ -108,7 +108,60 @@ export async function registerDistribuidor(formData: FormData) {
         return { error: "El usuario ya existe" }
     }
 
+    // Auto-generate Distributor Config
+    if (data.user) {
+        try {
+            let uniqueCode = ""
+            let isAvailable = false
+            let attempts = 0
+            debugger
+            while (!isAvailable && attempts < 5) {
+                uniqueCode = generateReferralCode()
+                const { data: available, error: rpcError } = await supabase
+                    .schema('notificacion')
+                    .rpc('fn_codigo_distribuidor_disponible', { _codigo: uniqueCode })
+
+                if (!rpcError && available) {
+                    isAvailable = true
+                }
+                attempts++
+            }
+
+            if (isAvailable) {
+                const { error: configError } = await supabase
+                    .schema('notificacion')
+                    .from('distribuidor_config')
+                    .insert({
+                        id_perfil: data.user.id,
+                        codigo_referido: uniqueCode
+                    })
+
+                if (configError) {
+                    console.error("Error creating distributor config:", configError)
+                    // We don't fail registration if config fails, but log it. 
+                    // Manual fix might be needed or retry logic could be more robust.
+                } else {
+                    console.log(`[AUTH] Distributor config created for ${data.user.id} with code ${uniqueCode}`)
+                }
+            } else {
+                console.error("Failed to generate unique code after 5 attempts")
+            }
+
+        } catch (err) {
+            console.error("Unexpected error creating config:", err)
+        }
+    }
+
     return { success: true, user: data.user }
+}
+
+function generateReferralCode(length: number = 5): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let result = ''
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
 }
 
 export async function signOut() {
