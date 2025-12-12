@@ -35,7 +35,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog"
-import { LogOut, Settings, Search, Download, ChevronDown, ChevronUp, MoreVertical, Volume2, VolumeX, Bell, BellOff, Radio } from "lucide-react"
+import { LogOut, Settings, Search, Download, ChevronDown, ChevronUp, MoreVertical, Volume2, VolumeX, Bell, BellOff, Radio, MessageCircle } from "lucide-react"
 
 export function AdminMonitorPanel() {
     const { user, logout } = useAuthStore()
@@ -50,6 +50,8 @@ export function AdminMonitorPanel() {
     const [isFiltersOpen, setIsFiltersOpen] = useState(true)
     const [profileConfig, setProfileConfig] = useState<{ nombre: string, showSearchFilter: boolean }>({ nombre: '', showSearchFilter: true })
     const [refreshTrigger, setRefreshTrigger] = useState(0)
+    // Subscription State
+    const [subscriptionStatus, setSubscriptionStatus] = useState<{ success: boolean, message: string } | null>(null)
 
     // Get today's date in Lima Timezone
     const nowLima = DateTime.now().setZone("America/Lima")
@@ -64,6 +66,16 @@ export function AdminMonitorPanel() {
 
     // Admin ID
     const adminId = user?.id
+
+    // Check Subscription
+    useEffect(() => {
+        const checkSub = async () => {
+            if (!adminId) return
+            const status = await ProfileRepository.checkSubscription(adminId)
+            setSubscriptionStatus(status)
+        }
+        checkSub()
+    }, [adminId])
 
     // Initial Fetch & Filter Effect
     useEffect(() => {
@@ -337,6 +349,36 @@ export function AdminMonitorPanel() {
                     </div>
                 </div>
             </div>
+
+            {/* Subscription Warning Card */}
+            {subscriptionStatus && !subscriptionStatus.success && (
+                <Card className="border-2 border-amber-400 bg-amber-50 shadow-lg animate-pulse">
+                    <CardContent className="flex flex-col md:flex-row items-center justify-between p-4 gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-amber-100 p-2 rounded-full">
+                                <LogOut className="h-6 w-6 text-amber-600 rotate-180" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-amber-800 text-lg">No tiene una suscripción activa</h3>
+                                <p className="text-amber-700 text-sm">{subscriptionStatus.message || "Activa tu plan para continuar recibiendo notificaciones."}</p>
+                            </div>
+                        </div>
+                        <Button
+                            className="bg-[#25D366] hover:bg-[#128C7E] text-white font-semibold gap-2 shadow-sm"
+                            asChild
+                        >
+                            <a
+                                href="https://wa.me/51907796591?text=Quiero%20activar%20mi%20suscripci%C3%B3n%20de%20VerifyApp"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <MessageCircle className="h-5 w-5" />
+                                Activar Suscripción en WhatsApp
+                            </a>
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Filters Card */}
             {profileConfig.showSearchFilter && (

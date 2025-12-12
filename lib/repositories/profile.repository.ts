@@ -46,5 +46,19 @@ export const ProfileRepository = {
         if (error) {
             throw error
         }
+    },
+
+    async checkSubscription(userId: string) {
+        const { data, error } = await supabase
+            .schema('public')
+            .rpc('fn_validar_suscripcion_usuario', { p_user_id: userId })
+
+        if (error) {
+            console.error("Error checking subscription:", error)
+            // Return failure by default on error to be safe, or handle differently
+            return { success: false, message: 'Error de conexión' }
+        }
+
+        return data as { success: boolean, message: string }
     }
 }
