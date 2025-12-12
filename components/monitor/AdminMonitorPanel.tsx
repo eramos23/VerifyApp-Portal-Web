@@ -144,6 +144,20 @@ export function AdminMonitorPanel() {
                 setTimeout(() => setHighlightedId(null), 5000)
             }
 
+            // Desktop Notification
+            if (desktopNotifications && "Notification" in window && Notification.permission === "granted") {
+                try {
+                    const mensaje = newTransaction.mensaje_original ? (newTransaction.mensaje_original.split('|')[1] || '').trim() : ''
+                    new Notification(`Nuevo pago de: ${mappedTransaction.moneda} ${mappedTransaction.monto}`, {
+                        body: `${mappedTransaction.nombre} - ${mappedTransaction.codigoPago}`,
+                        icon: '/verify_check.png',
+                        silent: true
+                    })
+                } catch (err) {
+                    console.error("Error showing desktop notification:", err)
+                }
+            }
+
             if (soundEnabled) {
                 const audio = new Audio('/audio/yape_sonido.mp3')
                 audio.play().catch(e => {
@@ -160,11 +174,16 @@ export function AdminMonitorPanel() {
         }
     })
 
-    // Load sound preference from localStorage
+    // Load preference from localStorage
     useEffect(() => {
         const savedSound = localStorage.getItem('soundEnabled')
         if (savedSound !== null) {
             setSoundEnabled(savedSound === 'true')
+        }
+
+        const savedDesktop = localStorage.getItem('desktopNotifications')
+        if (savedDesktop !== null) {
+            setDesktopNotifications(savedDesktop === 'true')
         }
     }, [])
 
@@ -283,11 +302,13 @@ export function AdminMonitorPanel() {
 
         if (Notification.permission === "granted") {
             setDesktopNotifications(true)
+            localStorage.setItem('desktopNotifications', 'true')
             toast.success("Notificaciones activadas")
         } else if (Notification.permission !== "denied") {
             const permission = await Notification.requestPermission()
             if (permission === "granted") {
                 setDesktopNotifications(true)
+                localStorage.setItem('desktopNotifications', 'true')
                 toast.success("Notificaciones activadas")
             }
         }
@@ -296,6 +317,7 @@ export function AdminMonitorPanel() {
     const toggleDesktopNotifications = () => {
         if (desktopNotifications) {
             setDesktopNotifications(false)
+            localStorage.setItem('desktopNotifications', 'false')
         } else {
             requestNotificationPermission()
         }
