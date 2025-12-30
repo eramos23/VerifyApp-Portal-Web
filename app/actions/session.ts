@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from "@/lib/supabase/server"
 
-export async function checkSession() {
+export async function checkSession(): Promise<{ isAuthenticated: boolean, role: string | null | undefined }> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

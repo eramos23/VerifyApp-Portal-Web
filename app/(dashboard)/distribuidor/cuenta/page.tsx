@@ -38,12 +38,14 @@ export default function CuentaPage() {
     // Fetch Data
     useEffect(() => {
         const loadData = async () => {
-            if (!user?.id) return
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const userId = (user as any)?.id
+            if (!userId) return
 
             setIsLoading(true)
             try {
                 // Fetch Profile
-                const profile = await ProfileRepository.getProfile(user.id)
+                const profile = await ProfileRepository.getProfile(userId)
                 if (profile) {
                     setProfileData({
                         nombre: profile.nombre || "",
@@ -56,7 +58,7 @@ export default function CuentaPage() {
                 }
 
                 // Fetch Config
-                const config = await DistribuidorRepository.getConfig(user.id)
+                const config = await DistribuidorRepository.getConfig(userId)
                 if (config) {
                     setReferralCode(config.codigo_referido || "")
                     setOriginalReferralCode(config.codigo_referido || "")
@@ -70,7 +72,8 @@ export default function CuentaPage() {
         }
 
         loadData()
-    }, [user?.id])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }, [(user as any)?.id])
 
     // Validation Logic
     const validateProfile = () => {
@@ -118,7 +121,9 @@ export default function CuentaPage() {
 
     // Handlers
     const handleSaveProfile = async () => {
-        if (!user?.id) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userId = (user as any)?.id
+        if (!userId) return
         if (!validateProfile()) return
 
         // Check if changed
@@ -130,7 +135,7 @@ export default function CuentaPage() {
 
         setIsSavingProfile(true)
         try {
-            await ProfileRepository.updateProfile(user.id, profileData)
+            await ProfileRepository.updateProfile(userId, profileData)
             setOriginalProfileData({ ...profileData })
             toast.success("Perfil actualizado correctamente")
         } catch (error) {
@@ -142,7 +147,9 @@ export default function CuentaPage() {
     }
 
     const handleSaveReferral = async () => {
-        if (!user?.id) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userId = (user as any)?.id
+        if (!userId) return
         if (!validateReferralCode()) return
 
         // Check if changed
@@ -163,7 +170,7 @@ export default function CuentaPage() {
                 return
             }
 
-            await DistribuidorRepository.updateReferralCode(user.id, referralCode)
+            await DistribuidorRepository.updateReferralCode(userId, referralCode)
             setOriginalReferralCode(referralCode)
             toast.success("Código de referido actualizado")
         } catch (error: any) {

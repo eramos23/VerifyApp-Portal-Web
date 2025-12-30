@@ -65,7 +65,9 @@ export function AdminMonitorPanel() {
     const [isExportWarningOpen, setIsExportWarningOpen] = useState(false)
 
     // Admin ID
-    const adminId = user?.id
+    // Admin ID
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const adminId = (user as any)?.id
 
     // Check Subscription
     useEffect(() => {

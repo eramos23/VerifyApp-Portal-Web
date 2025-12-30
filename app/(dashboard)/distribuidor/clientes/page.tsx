@@ -30,11 +30,13 @@ export default function ClientsPage() {
 
     useEffect(() => {
         const fetchClients = async () => {
-            if (!user?.id) return
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const userId = (user as any)?.id
+            if (!userId) return
 
             setIsLoading(true)
             try {
-                const data = await DistribuidorRepository.getClients(user.id)
+                const data = await DistribuidorRepository.getClients(userId)
                 setClients(data)
             } catch (error) {
                 console.error("Error fetching clients:", error)
@@ -45,7 +47,8 @@ export default function ClientsPage() {
         }
 
         fetchClients()
-    }, [user?.id])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }, [(user as any)?.id])
 
     // Filter Logic
     const filteredClients = clients.filter(client => {

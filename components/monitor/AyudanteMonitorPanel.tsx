@@ -54,6 +54,7 @@ export function AyudanteMonitorPanel() {
     const today = nowLima.toFormat("yyyy-MM-dd")
 
     // Admin ID (from Ayudante user)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adminId = (user as any)?.id_admin
 
     // Fetch Admin Name
@@ -61,7 +62,7 @@ export function AyudanteMonitorPanel() {
         const fetchName = async () => {
             if (adminId) {
                 const name = await ProfileRepository.getAdminName(adminId)
-                if (name) setDisplayAdminName(name)
+                if (name && name.nombre) setDisplayAdminName(name.nombre)
             }
         }
         fetchName()

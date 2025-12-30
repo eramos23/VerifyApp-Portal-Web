@@ -51,11 +51,10 @@ npm install
 # Crear archivo .env
 nano .env
 ```
-
 Pega tus variables de entorno:
 ```env
-SUPABASE_URL=tu_url
-SUPABASE_ANON_KEY=tu_key
+NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_key_anonima
 NEXT_PUBLIC_APP_URL=https://monitor.verifyapp.nexiestudio.com
 ```
 
