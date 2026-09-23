@@ -18,8 +18,6 @@ export default function AdminLoginPage() {
             if (session.isAuthenticated && session.role) {
                 if (session.role === 'admin') {
                     router.push('/monitor')
-                } else if (session.role === 'distribuidor') {
-                    router.push('/distribuidor')
                 }
                 // Ayudante logic disabled
             }

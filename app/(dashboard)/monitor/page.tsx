@@ -6,12 +6,13 @@ import { AyudanteMonitorPanel } from "@/components/monitor/AyudanteMonitorPanel"
 
 export default function MonitorPage() {
     const { role } = useAuthStore()
+    const isAyudante = role === 'ayudante' || (typeof window !== 'undefined' && localStorage.getItem('user_type') === 'ayudante')
 
     if (role === 'admin') {
         return <AdminMonitorPanel />
     }
 
-    if (role === 'ayudante') {
+    if (isAyudante) {
         return <AyudanteMonitorPanel />
     }
 

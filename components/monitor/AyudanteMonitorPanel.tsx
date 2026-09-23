@@ -53,9 +53,9 @@ export function AyudanteMonitorPanel() {
     const nowLima = DateTime.now().setZone("America/Lima")
     const today = nowLima.toFormat("yyyy-MM-dd")
 
-    // Admin ID (from Ayudante user)
+    // Admin ID (from Ayudante user or localStorage)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const adminId = (user as any)?.id_admin
+    const adminId = (user as any)?.id_admin || (typeof window !== "undefined" ? localStorage.getItem("helper_id_admin") : "")
 
     // Fetch Admin Name
     useEffect(() => {

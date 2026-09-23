@@ -41,18 +41,18 @@ const formSchema = z.object({
 })
 
 interface LoginFormProps {
-    role?: "admin" | "ayudante" | "distribuidor"
+    role?: "admin" | "ayudante"
     title?: string
     description?: string
-    allowedRoles?: ("admin" | "ayudante" | "distribuidor")[]
+    allowedRoles?: ("admin" | "ayudante")[]
 }
 
 export function LoginForm({ role: initialRole = "admin", title, description, allowedRoles }: LoginFormProps) {
     // Default to showing all roles if not specified
-    const rolesToShow = allowedRoles || ["admin", "ayudante", "distribuidor"]
+    const rolesToShow = allowedRoles || ["admin", "ayudante"]
 
     // Initialize state with the passed role or the first allowed role
-    const [role, setRole] = useState(initialRole)
+    const [role, setRole] = useState<"admin" | "ayudante">(initialRole as "admin" | "ayudante")
     const [showPassword, setShowPassword] = useState(false)
     const { setIsLoading, isLoading } = useLoadingStore()
     const { setRole: setAuthRole, setUser: setAuthUser } = useAuthStore()
@@ -76,7 +76,7 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
         const formData = new FormData()
 
         // Validation logic based on role
-        if (role === 'admin' || role === 'distribuidor') {
+        if (role === 'admin') {
             // Email validation
             if (values.identifier.length > 50) {
                 form.setError("identifier", { type: "manual", message: "El correo no puede tener más de 50 caracteres" })
@@ -130,8 +130,6 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                     setAuthUser(result.user || null)
                     if (role === 'admin') {
                         router.push("/monitor")
-                    } else if (role === 'distribuidor') {
-                        router.push("/distribuidor")
                     }
                 }
             }
@@ -143,7 +141,7 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
     }
 
     const handleRoleChange = (newRole: string) => {
-        setRole(newRole as "admin" | "ayudante" | "distribuidor")
+        setRole(newRole as "admin" | "ayudante")
         form.reset()
     }
 
@@ -183,7 +181,6 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                         <TabsList className={`grid w-full grid-cols-${rolesToShow.length}`}>
                             {rolesToShow.includes("admin") && <TabsTrigger value="admin">Admin</TabsTrigger>}
                             {rolesToShow.includes("ayudante") && <TabsTrigger value="ayudante">Ayudante</TabsTrigger>}
-                            {rolesToShow.includes("distribuidor") && <TabsTrigger value="distribuidor">Distribuidor</TabsTrigger>}
                         </TabsList>
                     </Tabs>
                 )}
@@ -253,15 +250,15 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                         </Button>
                     </form>
                 </Form>
-                {/* Register Link for Distributor */}
-                {(role === 'distribuidor' || (rolesToShow.includes('distribuidor') && rolesToShow.length === 1)) && (
-                    <div className="mt-4 text-center text-sm">
-                        ¿No tienes una cuenta?{" "}
-                        <Link href="/register/distribuidor" className="text-[#0095e0] hover:underline">
-                            Créalo aquí
-                        </Link>
-                    </div>
-                )}
+                <div className="mt-4 text-center text-sm">
+                    <Link
+                        href="/login/ayudante"
+                        onClick={() => setIsLoading(true)}
+                        className="text-[#0095e0] hover:underline font-medium"
+                    >
+                        &larr; Ingresar como Ayudante
+                    </Link>
+                </div>
             </CardContent>
         </Card>
     )

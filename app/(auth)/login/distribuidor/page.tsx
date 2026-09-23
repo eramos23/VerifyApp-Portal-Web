@@ -1,37 +1,5 @@
-"use client"
-
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useAuthStore } from "@/lib/store/useAuthStore"
-import { LoginForm } from "@/components/auth/LoginForm"
-
-import { checkSession } from "@/app/actions/session"
+import { notFound } from "next/navigation"
 
 export default function DistribuidorLoginPage() {
-    const { user, role, logout } = useAuthStore()
-    const router = useRouter()
-
-    useEffect(() => {
-        const verifyAndRedirect = async () => {
-            const session = await checkSession()
-            if (session.isAuthenticated && session.role) {
-                if (session.role === 'admin') {
-                    router.push('/monitor')
-                } else if (session.role === 'distribuidor') {
-                    router.push('/distribuidor')
-                }
-                // Ayudante logic disabled
-            }
-        }
-        verifyAndRedirect()
-    }, [router])
-
-    return (
-        <LoginForm
-            role="distribuidor"
-            title="Distribuidor"
-            description="Acceso para distribuidores autorizados"
-            allowedRoles={["distribuidor"]}
-        />
-    )
+    return notFound()
 }

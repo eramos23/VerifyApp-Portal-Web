@@ -13,10 +13,10 @@ export interface AyudanteUser {
 
 interface AuthState {
     user: User | AyudanteUser | null
-    role: 'admin' | 'ayudante' | 'distribuidor' | null
+    role: 'admin' | 'ayudante' | null
     isLoading: boolean
     setUser: (user: User | AyudanteUser | null) => void
-    setRole: (role: 'admin' | 'ayudante' | 'distribuidor' | null) => void
+    setRole: (role: 'admin' | 'ayudante' | null) => void
     setLoading: (loading: boolean) => void
     logout: () => void
 }

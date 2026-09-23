@@ -8,13 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 import {
     LayoutDashboard,
-    Users,
-    CreditCard,
-    Settings,
     LogOut,
     Bell,
-    BarChart3,
-    User
 } from "lucide-react"
 import { signOut } from "@/app/actions/auth"
 import Image from "next/image"
@@ -45,7 +40,7 @@ export function Sidebar() {
         setIsLogoutOpen(false)
         setIsLoading(true)
         await signOut()
-        router.push("/login/distribuidor")
+        router.push("/login/admin")
     }
 
     const routes = [
@@ -55,34 +50,6 @@ export function Sidebar() {
             href: "/monitor",
             color: "text-sky-500",
             roles: ["admin", "ayudante"]
-        },
-        {
-            label: "Distribuidor",
-            icon: BarChart3,
-            href: "/distribuidor",
-            color: "text-violet-500",
-            roles: ["distribuidor"]
-        },
-        {
-            label: "Clientes",
-            icon: Users,
-            href: "/distribuidor/clientes",
-            color: "text-pink-700",
-            roles: ["distribuidor"]
-        },
-        {
-            label: "Comisiones",
-            icon: CreditCard,
-            href: "/distribuidor/comisiones",
-            color: "text-orange-700",
-            roles: ["distribuidor"]
-        },
-        {
-            label: "Cuenta",
-            icon: User,
-            href: "/distribuidor/cuenta",
-            color: "text-green-600",
-            roles: ["distribuidor"]
         },
     ]
 
@@ -106,7 +73,7 @@ export function Sidebar() {
                 </Button>
 
                 <div className="px-3 py-2 flex-1">
-                    <Link href={role === 'distribuidor' ? "/distribuidor" : "/monitor"} className={cn("flex items-center pl-3 mb-14 transition-all", isSidebarCollapsed ? "justify-center pl-0" : "")}>
+                    <Link href="/monitor" className={cn("flex items-center pl-3 mb-14 transition-all", isSidebarCollapsed ? "justify-center pl-0" : "")}>
                         <div className="relative w-8 h-8 mr-4">
                             <Image
                                 src="/logo.png"
