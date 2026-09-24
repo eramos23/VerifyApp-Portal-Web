@@ -26,22 +26,21 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog"
-import {
-    LogOut,
-    Settings,
-    MoreVertical,
-    Volume2,
-    VolumeX,
-    Bell,
-    BellOff,
+import { 
+    LogOut, 
+    Settings, 
+    MoreVertical, 
+    Volume2, 
+    VolumeX, 
+    Bell, 
+    BellOff, 
     RefreshCw,
     TrendingUp,
     Activity,
     Home,
-    User,
-    ChevronDown,
     Wallet,
-    Receipt
+    Receipt,
+    Search
 } from "lucide-react"
 
 import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
@@ -52,9 +51,10 @@ export function AyudanteMonitorPanel() {
     const router = useRouter()
     const { setIsLoading } = useLoadingStore()
 
-    // Estado para transacciones
+    // Estado para transacciones y búsqueda
     const [transactions, setTransactions] = useState<NotificationItem[]>([])
     const [rawTransactions, setRawTransactions] = useState<Transaction[]>([])
+    const [tableSearchQuery, setTableSearchQuery] = useState("")
     const [soundEnabled, setSoundEnabled] = useState(false)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
     const [desktopNotifications, setDesktopNotifications] = useState(false)
@@ -257,54 +257,35 @@ export function AyudanteMonitorPanel() {
         return sum + amount
     }, 0).toFixed(2)
 
-    // Email del usuario logueado o fallback
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userEmail = (user as any)?.email || "admin@empresa.com"
-
     return (
         <div className="min-h-screen bg-[#f3f6fa] pb-16 font-sans text-slate-800">
             {/* Header / Barra de Navegación Superior */}
-            <header className="bg-white border-b border-slate-200/80 px-4 sm:px-8 py-3 flex items-center justify-between sticky top-0 z-40 shadow-2xs">
-                {/* Brand Logo */}
-                <div className="flex items-center gap-3">
-                    <div className="relative w-32 h-9">
+            <header className="bg-white border-b border-slate-200/80 px-4 sm:px-8 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-2xs">
+                {/* Brand Logo & Subtitle */}
+                <div className="flex flex-col items-center">
+                    <div className="relative w-32 h-8">
                         <Image
                             src="/logo.png"
                             alt="VerifyApp"
                             fill
-                            className="object-contain object-left"
+                            className="object-contain object-center"
                             priority
                         />
                     </div>
+                    <span className="text-[11px] font-bold text-slate-500 tracking-tight -mt-0.5">
+                        Monitor de Pagos
+                    </span>
                 </div>
 
-                {/* Right Status & Profile Pill */}
+                {/* Right Connection Status Badge */}
                 <div className="flex items-center gap-3 sm:gap-4">
                     {/* Status Badge */}
                     <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border transition-all ${isConnected
                         ? 'bg-[#e6f9f0] text-[#00c875] border-[#bbf2d7]'
                         : 'bg-rose-50 text-rose-600 border-rose-200'
-                        }`}>
+                    }`}>
                         <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-[#00c875] animate-pulse' : 'bg-rose-500'}`} />
                         <span>{isConnected ? 'Conectado' : 'Desconectado'}</span>
-                    </div>
-
-                    <div className="hidden sm:block h-6 w-[1px] bg-slate-200" />
-
-                    {/* Profile User Badge */}
-                    <div className="flex items-center gap-2.5 pl-1">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs">
-                            <User className="h-4 w-4" />
-                        </div>
-                        <div className="hidden md:flex flex-col text-left">
-                            <span className="text-xs font-bold text-slate-800 leading-tight">
-                                {userEmail}
-                            </span>
-                            <span className="text-[10px] font-semibold text-slate-400">
-                                Ayudante
-                            </span>
-                        </div>
-                        <ChevronDown className="h-4 w-4 text-slate-400 hidden sm:block" />
                     </div>
                 </div>
             </header>
@@ -316,17 +297,17 @@ export function AyudanteMonitorPanel() {
                 <div className="bg-gradient-to-r from-[#eef5ff] via-[#e8f1fd] to-[#e4eefd] rounded-3xl p-0 border border-blue-100/90 shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
                     {/* Left text section */}
                     <div className="space-y-2 max-w-xl z-10 p-4 sm:p-5 md:pr-0">
-                        <div className="inline-flex items-center gap-1.5 bg-white/80 backdrop-blur-xs text-[#0095e0] font-extrabold text-[11px] uppercase tracking-wider px-3 py-1 rounded-full border border-blue-200/60 shadow-2xs">
-                            <Home className="h-3.5 w-3.5" />
+                        <div className="inline-flex items-center gap-1.5 bg-white/80 backdrop-blur-xs text-[#0095e0] font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-blue-200/60 shadow-2xs">
+                            <Home className="h-3 w-3" />
                             <span>PANEL DE AYUDANTE</span>
                         </div>
 
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#0f172a] tracking-tight">
-                            Monitor - {displayAdminName}
+                            {displayAdminName}
                         </h1>
 
-                        <p className="text-slate-500 font-medium text-xs sm:text-sm leading-relaxed">
-                            Controla en tiempo real tus ventas y transacciones de Yape.
+                        <p className="text-slate-500 font-medium text-xs leading-relaxed">
+                            Controla en tiempo real tus ventas, reportes y transacciones tus billeteras dijitales.
                         </p>
                     </div>
 
@@ -334,7 +315,7 @@ export function AyudanteMonitorPanel() {
                     <div className="relative z-10 w-full md:w-auto self-stretch flex items-center justify-center md:justify-end">
                         <div className="relative w-full md:w-[360px] lg:w-[410px] h-32 sm:h-36 md:h-full min-h-[130px] sm:min-h-[145px]">
                             <Image
-                                src="/assets/img/banner-pago-recibido1.png"
+                                src="/assets/img/banner-pago-recibido.png"
                                 alt="Tu negocio siempre al día"
                                 fill
                                 className="object-contain object-center md:object-right"
@@ -342,7 +323,6 @@ export function AyudanteMonitorPanel() {
                             />
                         </div>
                     </div>
-
 
                     {/* Background Soft Blur Orbs */}
                     <div className="absolute top-0 right-0 w-80 h-80 bg-blue-200/30 rounded-full blur-3xl pointer-events-none" />
@@ -422,35 +402,47 @@ export function AyudanteMonitorPanel() {
                 {/* Main Card: Transacciones de Hoy */}
                 <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden p-5 sm:p-7 space-y-6">
                     {/* Header bar */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#0095e0] flex items-center justify-center">
-                                <Activity className="h-5 w-5" />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#0095e0] flex items-center justify-center shrink-0">
+                                <Activity className="h-4 w-4" />
                             </div>
-                            <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
                                 Transacciones de Hoy
                             </h2>
-                            <span className="bg-[#e0f2fe] text-[#0284c7] font-extrabold text-xs px-3 py-1 rounded-full border border-blue-100">
-                                {transactions.length} registros
-                            </span>
                         </div>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => loadTransactions(true)}
-                            disabled={isRefreshing}
-                            className="h-10 px-4 border-slate-200 text-[#0095e0] hover:text-[#0095e0] hover:bg-blue-50/50 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-2xs rounded-xl cursor-pointer transition-all active:scale-95"
-                        >
-                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                            <span>Actualizar</span>
-                        </Button>
+                        <div className="flex items-center gap-2.5 flex-1 sm:flex-none justify-end">
+                            {/* Input de Búsqueda al lado derecho al nivel del título */}
+                            <div className="relative flex-1 sm:w-64 md:w-72">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por código, monto o fecha..."
+                                    value={tableSearchQuery}
+                                    onChange={(e) => setTableSearchQuery(e.target.value)}
+                                    className="w-full h-9 pl-9 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0095e0]/20 focus:border-[#0095e0] transition-all"
+                                />
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => loadTransactions(true)}
+                                disabled={isRefreshing}
+                                className="h-9 px-3 border-slate-200 text-[#0095e0] hover:text-[#0095e0] hover:bg-blue-50/50 font-bold text-xs flex items-center gap-1.5 shadow-2xs rounded-xl cursor-pointer transition-all shrink-0"
+                            >
+                                <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">Actualizar</span>
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Rendered Table */}
                     <TransactionTable
                         transactions={transactions}
                         highlightedId={highlightedId}
+                        searchQuery={tableSearchQuery}
                     />
                 </div>
             </main>

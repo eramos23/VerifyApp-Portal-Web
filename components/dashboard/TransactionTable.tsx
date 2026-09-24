@@ -30,10 +30,12 @@ import {
 interface TransactionTableProps {
     transactions: NotificationItem[]
     highlightedId?: string | null
+    searchQuery?: string
 }
 
-export function TransactionTable({ transactions, highlightedId }: TransactionTableProps) {
-    const [searchQuery, setSearchQuery] = useState("")
+export function TransactionTable({ transactions, highlightedId, searchQuery: externalSearchQuery }: TransactionTableProps) {
+    const [internalSearchQuery, setInternalSearchQuery] = useState("")
+    const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery
     const [currentPage, setCurrentPage] = useState(1)
     const pageSize = 10
 
@@ -68,34 +70,7 @@ export function TransactionTable({ transactions, highlightedId }: TransactionTab
     }
 
     return (
-        <div className="space-y-5">
-            {/* Barra de Filtros y Búsqueda */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                {/* Desplegable Fecha */}
-                <div className="flex items-center gap-2">
-                    <button 
-                        type="button"
-                        className="h-10 px-3.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 shadow-2xs flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                        <Calendar className="h-4 w-4 text-[#0095e0]" />
-                        <span>Hoy</span>
-                        <ChevronDown className="h-3.5 w-3.5 text-slate-400 ml-1" />
-                    </button>
-                </div>
-
-                {/* Input de Búsqueda */}
-                <div className="relative flex-1 sm:max-w-md">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <input
-                        type="text"
-                        placeholder="Buscar por código, monto o fecha..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-10 pl-10 pr-4 bg-slate-50/70 border border-slate-200/90 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0095e0]/20 focus:border-[#0095e0] transition-all"
-                    />
-                </div>
-            </div>
-
+        <div className="space-y-4">
             {/* Tabla con Estilos de la Mockup */}
             <div className="rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-2xs">
                 <div className="overflow-x-auto">
@@ -171,13 +146,13 @@ export function TransactionTable({ transactions, highlightedId }: TransactionTab
                                         >
                                             {/* Origen Icon */}
                                             <TableCell className="py-3.5 pl-6">
-                                                <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-200/60 bg-white p-0.5 shadow-2xs flex items-center justify-center">
+                                                <div className="relative w-8 h-8 rounded-md overflow-hidden border border-slate-200/60 bg-white p-0.5 shadow-2xs flex items-center justify-center">
                                                     <Image
                                                         src={logoSrc}
                                                         alt={tx.origen || "Origen"}
                                                         width={32}
                                                         height={32}
-                                                        className="object-contain rounded-lg"
+                                                        className="object-contain rounded-xs"
                                                     />
                                                 </div>
                                             </TableCell>
