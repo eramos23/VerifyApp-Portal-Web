@@ -5,7 +5,7 @@ export const ProfileRepository = {
         const { data: adminProfile, error: profileError } = await supabase
             .schema('notificacion')
             .from('perfil')
-            .select('nombre, filtro_busqueda_web')
+            .select('nombre, nombre_negocio, filtro_busqueda_web')
             .eq('id', adminId)
             .single()
 
@@ -16,6 +16,7 @@ export const ProfileRepository = {
 
         return {
             nombre: adminProfile.nombre,
+            nombre_negocio: adminProfile.nombre_negocio,
             filtro_busqueda_web: adminProfile.filtro_busqueda_web
         }
     },

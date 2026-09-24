@@ -41,15 +41,15 @@ export interface ValidarSesionAyudanteResponse {
     mensaje?: string
 }
 
-export function generateSecureSessionToken(): string {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '')
-    }
-    return `tok_${Date.now()}_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`
-}
-
+/**
+ * Capa de Repositorio para la ejecución de funciones RPC del backend de Ayudante.
+ * Objeto de Acceso a Datos (DAO) puro siguiendo los principios SOLID.
+ */
 export const AyudanteRepository = {
-    async solicitarIngresoCanal(codigoCanal: string, nombre: string, deviceId: string) {
+    /**
+     * Invoca la función RPC 'fn_solicitar_ingreso_canal'.
+     */
+    async solicitarIngresoCanal(codigoCanal: string, nombre: string, deviceId: string): Promise<SolicitarIngresoResponse> {
         const { data, error } = await publicSupabase
             .rpc('fn_solicitar_ingreso_canal', {
                 p_codigo: codigoCanal.trim(),
@@ -66,7 +66,10 @@ export const AyudanteRepository = {
         return res as SolicitarIngresoResponse
     },
 
-    async consultarEstadoSolicitud(deviceId: string) {
+    /**
+     * Invoca la función RPC 'fn_consultar_solicitud_ayudante'.
+     */
+    async consultarEstadoSolicitud(deviceId: string): Promise<EstadoSolicitudAyudanteResponse> {
         const { data, error } = await publicSupabase
             .rpc('fn_consultar_solicitud_ayudante', {
                 p_device_id: deviceId.trim()
@@ -81,59 +84,34 @@ export const AyudanteRepository = {
         return res as EstadoSolicitudAyudanteResponse
     },
 
-    async iniciarSesionAyudante(solicitudId: string, deviceId: string, sessionToken: string) {
-        let currentToken = sessionToken.trim() || generateSecureSessionToken()
-        let attempts = 0
-        let result: IniciarSesionAyudanteResponse | null = null
+    /**
+     * Invoca la función RPC 'fn_iniciar_sesion_ayudante'.
+     */
+    async iniciarSesionAyudante(solicitudId: string, deviceId: string, sessionToken: string): Promise<IniciarSesionAyudanteResponse> {
+        const { data, error } = await publicSupabase
+            .rpc('fn_iniciar_sesion_ayudante', {
+                p_solicitud_id: solicitudId.trim(),
+                p_device_id: deviceId.trim(),
+                p_session_token: sessionToken.trim()
+            })
 
-        while (result === null && attempts < 3) {
-            attempts++
-            const { data, error } = await publicSupabase
-                .rpc('fn_iniciar_sesion_ayudante', {
-                    p_solicitud_id: solicitudId.trim(),
-                    p_device_id: deviceId.trim(),
-                    p_session_token: currentToken
-                })
-
-            if (!error && data) {
-                const res = Array.isArray(data) ? data[0] : data
-                result = res as IniciarSesionAyudanteResponse
-
-                if (typeof window !== 'undefined') {
-                    localStorage.setItem("helper_session_token", currentToken)
-                }
-            } else if (error) {
-                const errMsg = (error.message || "") + " " + (error.details || "")
-                const isDuplicateToken =
-                    errMsg.toLowerCase().includes("token_hash") ||
-                    errMsg.toLowerCase().includes("duplicate key") ||
-                    errMsg.toLowerCase().includes("already exists") ||
-                    error.code === '23505'
-
-                if (isDuplicateToken && attempts < 3) {
-                    currentToken = generateSecureSessionToken()
-                    console.warn(`[AUTH] Token duplicado en DB (${error.code}). Regenerando nuevo token (intento ${attempts}/3)...`)
-                } else {
-                    console.error("Error al iniciar sesión de ayudante:", error)
-                    throw new Error(error.message || error.hint || "No se pudo iniciar sesión de ayudante")
-                }
-            }
+        if (error) {
+            console.error("Error al iniciar sesión de ayudante:", error)
+            throw error
         }
 
-        if (!result) {
-            throw new Error("No se recibió respuesta al iniciar sesión de ayudante")
-        }
-
-        return result
+        const res = Array.isArray(data) ? data[0] : data
+        return res as IniciarSesionAyudanteResponse
     },
 
-    async validarSesionAyudante(deviceId: string, sessionToken: string) {
-        const tokenToValidate = sessionToken.trim() || (typeof window !== 'undefined' ? localStorage.getItem("helper_session_token") || "" : "")
-
+    /**
+     * Invoca la función RPC 'fn_validar_sesion_ayudante'.
+     */
+    async validarSesionAyudante(deviceId: string, sessionToken: string): Promise<ValidarSesionAyudanteResponse> {
         const { data, error } = await publicSupabase
             .rpc('fn_validar_sesion_ayudante', {
                 p_device_id: deviceId.trim(),
-                p_session_token: tokenToValidate.trim()
+                p_session_token: sessionToken.trim()
             })
 
         if (error) {

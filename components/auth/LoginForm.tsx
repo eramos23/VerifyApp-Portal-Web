@@ -250,13 +250,14 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                         </Button>
                     </form>
                 </Form>
-                <div className="mt-4 text-center text-sm">
+                <div className="pt-4 text-center">
                     <Link
                         href="/login/ayudante"
                         onClick={() => setIsLoading(true)}
-                        className="text-[#0095e0] hover:underline font-medium"
+                        className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-[#0095e0] transition-colors group"
                     >
-                        &larr; Ingresar como Ayudante
+                        <span className="mr-1 group-hover:-translate-x-0.5 transition-transform">←</span>
+                        <span>Ingresar como Ayudante</span>
                     </Link>
                 </div>
             </CardContent>

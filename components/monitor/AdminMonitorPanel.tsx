@@ -48,7 +48,7 @@ export function AdminMonitorPanel() {
     const [soundEnabled, setSoundEnabled] = useState(false)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
     const [isFiltersOpen, setIsFiltersOpen] = useState(true)
-    const [profileConfig, setProfileConfig] = useState<{ nombre: string, showSearchFilter: boolean }>({ nombre: '', showSearchFilter: true })
+    const [profileConfig, setProfileConfig] = useState<{ nombre: string, nombre_negocio: string, showSearchFilter: boolean }>({ nombre: '', nombre_negocio: '', showSearchFilter: true })
     const [refreshTrigger, setRefreshTrigger] = useState(0)
     // Subscription State
     const [subscriptionStatus, setSubscriptionStatus] = useState<{ success: boolean, message: string } | null>(null)
@@ -125,6 +125,7 @@ export function AdminMonitorPanel() {
             if (profile) {
                 setProfileConfig({
                     nombre: profile.nombre || '',
+                    nombre_negocio: profile.nombre_negocio || '',
                     showSearchFilter: profile.filtro_busqueda_web ?? true // Default to true if null
                 })
             }
@@ -337,7 +338,7 @@ export function AdminMonitorPanel() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                        Monitor de Pagos {profileConfig.nombre ? `de ${profileConfig.nombre}` : ''}
+                        Monitor{(profileConfig.nombre_negocio || profileConfig.nombre) ? ` - ${profileConfig.nombre_negocio || profileConfig.nombre}` : ''}
                     </h2>
                     {!profileConfig.showSearchFilter && (
                         <div className="mt-2">

@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AyudanteRepository } from "@/lib/repositories/ayudante.repository"
+import { AyudanteAuthService } from "@/lib/services/ayudante-auth.service"
+import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 import { useLoadingStore } from "@/lib/store/useLoadingStore"
 import { setAyudanteSessionCookie } from "@/app/actions/auth"
@@ -34,26 +35,6 @@ const formSchema = z.object({
         .min(3, { message: "El código debe tener al menos 3 caracteres" })
         .max(15, { message: "Máximo 15 caracteres" }),
 })
-
-function getOrCreateDeviceId(): string {
-    if (typeof window === "undefined") return ""
-    let id = localStorage.getItem("helper_device_id")
-    if (!id) {
-        id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `device_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-        localStorage.setItem("helper_device_id", id)
-    }
-    return id
-}
-
-function getOrCreateSessionToken(): string {
-    if (typeof window === "undefined") return ""
-    let token = localStorage.getItem("helper_session_token")
-    if (!token) {
-        token = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : `tok_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
-        localStorage.setItem("helper_session_token", token)
-    }
-    return token
-}
 
 export function AyudanteLoginForm() {
     const router = useRouter()
@@ -87,11 +68,11 @@ export function AyudanteLoginForm() {
         setIsLoading(false)
 
         const checkIfApproved = async () => {
-            const deviceId = getOrCreateDeviceId()
+            const deviceId = AyudanteStorageService.getDeviceId()
             if (!deviceId) return
 
             try {
-                const res = await AyudanteRepository.consultarEstadoSolicitud(deviceId)
+                const res = await AyudanteAuthService.consultarEstadoSolicitud()
                 const estado = (res?.estado || "").toLowerCase()
                 const solId = res?.solicitud_id || null
 
@@ -138,60 +119,21 @@ export function AyudanteLoginForm() {
         }
 
         setIsConnectingApproved(true)
-        const deviceId = getOrCreateDeviceId()
 
         try {
-            const sessionToken = getOrCreateSessionToken()
+            // 1. Iniciar sesión mediante AyudanteAuthService
+            // Genera token seguro de 256 bits y guarda en storage SOLO tras respuesta exitosa de DB
+            const helperData = await AyudanteAuthService.iniciarSesion(solId)
 
-            // 1. Iniciar sesión mediante 'fn_iniciar_sesion_ayudante'
-            const loginRes = await AyudanteRepository.iniciarSesionAyudante(
-                solId,
-                deviceId,
-                sessionToken
-            )
+            // 2. Actualizar estado y galletas
+            setUser(helperData as any)
+            setRole("ayudante")
+            setLoading(false)
 
-            // 2. Validar sesión
-            const valRes = await AyudanteRepository.validarSesionAyudante(
-                deviceId,
-                sessionToken
-            )
+            await setAyudanteSessionCookie()
 
-            if (valRes?.sesion_valida || loginRes?.ayudante_id) {
-                const helperData = {
-                    success: true,
-                    message: valRes.mensaje || loginRes.mensaje || "Sesión iniciada correctamente",
-                    token: sessionToken,
-                    ayudante_id: valRes.ayudante_id || loginRes.ayudante_id || "",
-                    id_admin: valRes.id_admin || loginRes.id_admin || "",
-                    id_canal: valRes.id_canal || loginRes.id_canal || "",
-                    nombre: valRes.nombre || loginRes.nombre || "",
-                    zona_horaria: loginRes.zona_horaria || ""
-                }
-
-                // Update Zustand store
-                setUser(helperData as any)
-                setRole("ayudante")
-                setLoading(false)
-
-                // Save persistent keys in LocalStorage
-                localStorage.setItem("helper_device_id", deviceId)
-                localStorage.setItem("helper_session_token", sessionToken)
-                localStorage.setItem("helper_session_id", loginRes?.session_id || "")
-                localStorage.setItem("helper_ayudante_id", helperData.ayudante_id)
-                localStorage.setItem("helper_id_admin", helperData.id_admin)
-                localStorage.setItem("helper_id_canal", helperData.id_canal)
-                localStorage.setItem("helper_nombre", helperData.nombre)
-                localStorage.setItem("user_type", "ayudante")
-
-                // Set server cookie for middleware
-                await setAyudanteSessionCookie()
-
-                toast.success("¡Sesión iniciada correctamente!")
-                router.push("/monitor")
-            } else {
-                const msg = valRes?.mensaje || "Tu cuenta no está activa o fue desactivada por el administrador."
-                toast.error(msg)
-            }
+            toast.success("¡Sesión iniciada correctamente!")
+            router.push("/monitor")
         } catch (err: any) {
             console.error("Error al conectar sesión aprobada:", err)
             toast.error(err.message || "Error al validar la sesión del ayudante")
@@ -200,7 +142,7 @@ export function AyudanteLoginForm() {
         }
     }
 
-    const handleApprovedSession = async (solId: string, devId: string) => {
+    const handleApprovedSession = async (solId: string) => {
         if (isProcessingSession.current) return
         isProcessingSession.current = true
 
@@ -208,57 +150,18 @@ export function AyudanteLoginForm() {
             stopPolling()
             setStatusText("¡Aprobación recibida! Iniciando sesión...")
 
-            const sessionToken = getOrCreateSessionToken()
+            // Iniciar sesión y guardar credenciales en LocalStorage
+            const helperData = await AyudanteAuthService.iniciarSesion(solId)
 
-            // 1. Iniciar sesión de ayudante
-            const loginRes = await AyudanteRepository.iniciarSesionAyudante(
-                solId,
-                devId,
-                sessionToken
-            )
+            // Actualizar estado global y cookie de servidor
+            setUser(helperData as any)
+            setRole("ayudante")
+            setLoading(false)
 
-            // 2. Validar sesión
-            const valRes = await AyudanteRepository.validarSesionAyudante(
-                devId,
-                sessionToken
-            )
+            await setAyudanteSessionCookie()
 
-            if (valRes?.sesion_valida || loginRes?.ayudante_id) {
-                const helperData = {
-                    success: true,
-                    message: valRes.mensaje || loginRes.mensaje || "Sesión activa",
-                    token: sessionToken,
-                    ayudante_id: valRes.ayudante_id || loginRes.ayudante_id || "",
-                    id_admin: valRes.id_admin || loginRes.id_admin || "",
-                    id_canal: valRes.id_canal || loginRes.id_canal || "",
-                    nombre: valRes.nombre || loginRes.nombre || "",
-                    zona_horaria: loginRes.zona_horaria || ""
-                }
-
-                // Update Zustand store
-                setUser(helperData as any)
-                setRole("ayudante")
-                setLoading(false)
-
-                // Save persistent keys in LocalStorage
-                localStorage.setItem("helper_device_id", devId)
-                localStorage.setItem("helper_session_token", sessionToken)
-                localStorage.setItem("helper_session_id", loginRes?.session_id || "")
-                localStorage.setItem("helper_ayudante_id", helperData.ayudante_id)
-                localStorage.setItem("helper_id_admin", helperData.id_admin)
-                localStorage.setItem("helper_id_canal", helperData.id_canal)
-                localStorage.setItem("helper_nombre", helperData.nombre)
-                localStorage.setItem("user_type", "ayudante")
-
-                // Set server cookie for middleware
-                await setAyudanteSessionCookie()
-
-                toast.success("¡Bienvenido! Solicitud aprobada.")
-                router.push("/monitor")
-            } else {
-                setErrorMessage(valRes?.mensaje || "No se pudo validar la sesión del ayudante")
-                setView("error")
-            }
+            toast.success("¡Bienvenido! Solicitud aprobada.")
+            router.push("/monitor")
         } catch (err: any) {
             console.error("Error al procesar sesión aprobada:", err)
             setErrorMessage(err.message || "Error al iniciar sesión")
@@ -271,16 +174,16 @@ export function AyudanteLoginForm() {
     const startListeningAndPolling = (devId: string, currentSolId: string) => {
         stopPolling()
 
-        // 1. Polling fallback every 3 seconds
+        // 1. Polling fallback cada 3 segundos
         pollIntervalRef.current = setInterval(async () => {
             try {
-                const res = await AyudanteRepository.consultarEstadoSolicitud(devId)
+                const res = await AyudanteAuthService.consultarEstadoSolicitud()
                 const estado = (res?.estado || "").toLowerCase()
 
                 if (estado === "aceptado" || estado === "aceptada" || estado === "aprobado" || estado === "aprobada") {
                     stopPolling()
                     setStatusText(res.mensaje || "¡Solicitud aprobada! Iniciando sesión...")
-                    await handleApprovedSession(res.solicitud_id || currentSolId, devId)
+                    await handleApprovedSession(res.solicitud_id || currentSolId)
                 } else if (estado === "rechazado" || estado === "rechazada") {
                     stopPolling()
                     setErrorMessage(res.mensaje || "Tu solicitud fue rechazada por el administrador.")
@@ -297,7 +200,7 @@ export function AyudanteLoginForm() {
             }
         }, 3000)
 
-        // 2. Supabase Realtime channel subscription
+        // 2. Suscripción Supabase Realtime
         try {
             const channel = supabase
                 .channel(`solicitud_ayudante_${devId}`)
@@ -314,7 +217,7 @@ export function AyudanteLoginForm() {
                         if (newEstado === "aceptado" || newEstado === "aceptada" || newEstado === "aprobado" || newEstado === "aprobada") {
                             stopPolling()
                             setStatusText("¡Aprobación recibida en tiempo real! Iniciando sesión...")
-                            await handleApprovedSession(payload.new?.id || currentSolId, devId)
+                            await handleApprovedSession(payload.new?.id || currentSolId)
                         } else if (newEstado === "rechazado" || newEstado === "rechazada") {
                             stopPolling()
                             setErrorMessage(payload.new?.mensaje || "Tu solicitud fue rechazada por el administrador.")
@@ -335,13 +238,11 @@ export function AyudanteLoginForm() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setIsSubmitting(true)
         setErrorMessage("")
-        const deviceId = getOrCreateDeviceId()
 
         try {
-            const response = await AyudanteRepository.solicitarIngresoCanal(
+            const response = await AyudanteAuthService.solicitarIngreso(
                 values.codigoCanal,
-                values.nombre,
-                deviceId
+                values.nombre
             )
 
             const estado = (response?.estado || "").toLowerCase()
@@ -349,27 +250,26 @@ export function AyudanteLoginForm() {
             setSolicitudId(solId)
 
             if (estado === "aceptado" || estado === "aceptada" || estado === "aprobado" || estado === "aprobada") {
+                await handleApprovedSession(solId)
+            } else if (estado === "pendiente") {
                 setView("waiting")
-                setStatusText(response.mensaje || "¡Solicitud aprobada! Iniciando sesión...")
-                await handleApprovedSession(solId, deviceId)
-            } else if (estado === "rechazado" || estado === "rechazada") {
-                setErrorMessage(response.mensaje || "Tu solicitud fue rechazada por el administrador.")
-                setView("error")
-            } else {
-                // Pendiente or Default
-                setView("waiting")
-                setStatusText(response.mensaje || "Conectado. Esperando que el administrador apruebe tu solicitud...")
+                setStatusText(response?.mensaje || "Solicitud enviada. Esperando que el administrador te dé acceso...")
+                const deviceId = AyudanteStorageService.getDeviceId()
                 startListeningAndPolling(deviceId, solId)
+            } else {
+                setErrorMessage(response?.mensaje || "No se pudo procesar la solicitud.")
+                setView("error")
             }
-        } catch (err: any) {
-            console.error("Error al solicitar ingreso:", err)
-            toast.error(err.message || "Error al solicitar ingreso al canal")
+        } catch (error: any) {
+            console.error("Error al solicitar ingreso:", error)
+            setErrorMessage(error.message || "Error al conectar con el servidor.")
+            setView("error")
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    const handleCancelOrRetry = () => {
+    const handleRetry = () => {
         stopPolling()
         setView("form")
         setErrorMessage("")
@@ -377,9 +277,9 @@ export function AyudanteLoginForm() {
     }
 
     return (
-        <Card className="w-[420px] border-none shadow-xl bg-white">
+        <Card className="w-[400px] border-none shadow-xl bg-white">
             <CardHeader className="space-y-1 flex flex-col items-center">
-                <div className="relative w-32 h-32 mb-1">
+                <div className="relative w-40 h-40 mb-1">
                     <Image
                         src="/logo.png"
                         alt="Logo"
@@ -388,20 +288,16 @@ export function AyudanteLoginForm() {
                         priority
                     />
                 </div>
-                <CardTitle className="text-2xl font-bold text-center text-[#0095e0]">
-                    {view === "form" && "Acceso Ayudante"}
-                    {view === "waiting" && "Esperando Aprobación"}
-                    {view === "error" && "Solicitud Rechazada"}
-                </CardTitle>
+                <CardTitle className="text-2xl font-bold text-center text-[#0095e0]">Ayudante</CardTitle>
                 <CardDescription className="text-center">
-                    {view === "form" && "Ingresa tu nombre y el código de canal de tu administrador"}
-                    {view === "waiting" && "El administrador debe aprobar tu solicitud desde su aplicación"}
-                    {view === "error" && "No fue posible ingresar al canal"}
+                    {view === "form" && "Ingresa tus datos y el código proporcionado por el administrador"}
+                    {view === "waiting" && "Tu solicitud fue enviada correctamente"}
+                    {view === "error" && "Ocurrió un problema con tu solicitud de ingreso"}
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                {view === "form" && (
-                    <div className="space-y-4">
+            <CardContent className="space-y-4">
+                    {/* VIEW: FORM */}
+                    {view === "form" && (
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
@@ -409,140 +305,148 @@ export function AyudanteLoginForm() {
                                     name="nombre"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Nombre del Ayudante</FormLabel>
+                                            <FormLabel className="text-xs font-medium text-gray-700">Tu Nombre</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="Ej. Juan Pérez"
                                                     {...field}
-                                                    className="focus-visible:ring-[#0095e0]"
-                                                    disabled={isSubmitting || isApproved}
+                                                    disabled={isSubmitting}
+                                                    className="h-10 bg-gray-50/50 border-gray-200 focus:bg-white text-sm"
                                                 />
                                             </FormControl>
-                                            <FormMessage />
+                                            <FormMessage className="text-xs" />
                                         </FormItem>
                                     )}
                                 />
+
                                 <FormField
                                     control={form.control}
                                     name="codigoCanal"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Código del Canal</FormLabel>
+                                            <FormLabel className="text-xs font-medium text-gray-700">Código del Canal</FormLabel>
                                             <FormControl>
                                                 <Input
-                                                    placeholder="Ej. VERI-9CP1R"
+                                                    placeholder="Ej. CANAL123"
                                                     {...field}
+                                                    disabled={isSubmitting}
+                                                    className="h-10 bg-gray-50/50 border-gray-200 focus:bg-white uppercase text-sm"
                                                     onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                                    maxLength={15}
-                                                    className="focus-visible:ring-[#0095e0] uppercase tracking-wider font-semibold"
-                                                    disabled={isSubmitting || isApproved}
                                                 />
                                             </FormControl>
-                                            <FormMessage />
+                                            <FormMessage className="text-xs" />
                                         </FormItem>
                                     )}
                                 />
+
                                 <Button
                                     type="submit"
-                                    className="w-full bg-[#0095e0] hover:bg-[#007bb8] transition-colors mt-2"
-                                    disabled={isSubmitting || isApproved}
+                                    className="w-full h-10 font-semibold bg-[#0095e0] hover:bg-[#0095e0]/90 text-white transition-colors"
+                                    disabled={isSubmitting}
                                 >
                                     {isSubmitting ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Solicitando acceso...
-                                        </>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Enviando solicitud...</span>
+                                        </div>
                                     ) : (
-                                        "Solicitar Acceso"
+                                        "Ingresar"
                                     )}
                                 </Button>
                             </form>
                         </Form>
+                    )}
 
-                        {/* Button "Ya tienes acceso" when request is already approved */}
-                        {isApproved && (
-                            <div className="pt-3 border-t border-slate-100">
-                                <Button
-                                    type="button"
-                                    onClick={connectApprovedSession}
-                                    disabled={isConnectingApproved}
-                                    className="w-full bg-[#2E7D32] hover:bg-[#256629] text-white font-bold h-12 rounded-xl shadow-md transition-all animate-pulse hover:animate-none flex items-center justify-center gap-2"
-                                >
-                                    {isConnectingApproved ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Conectando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle2 className="w-5 h-5 text-white" />
-                                            <span>Ya tienes acceso</span>
-                                        </>
-                                    )}
-                                </Button>
+                    {/* VIEW: WAITING */}
+                    {view === "waiting" && (
+                        <div className="py-6 flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="relative">
+                                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-[#0095e0] animate-pulse">
+                                    <Clock className="w-8 h-8" />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow">
+                                    <Loader2 className="w-4 h-4 text-[#0095e0] animate-spin" />
+                                </div>
                             </div>
-                        )}
-                    </div>
-                )}
-
-                {view === "waiting" && (
-                    <div className="flex flex-col items-center justify-center py-6 space-y-6 text-center">
-                        <div className="relative flex items-center justify-center w-24 h-24">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-30"></span>
-                            <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-sky-50 border-2 border-[#0095e0] text-[#0095e0] shadow-inner">
-                                <Clock className="w-10 h-10 animate-spin" style={{ animationDuration: '4s' }} />
+                            <div className="space-y-1 max-w-xs">
+                                <p className="text-sm font-medium text-gray-800">
+                                    {statusText}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    El administrador recibirá una notificación para aprobar tu dispositivo.
+                                </p>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                {statusText}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                                Mantén esta pantalla abierta. Te conectaremos automáticamente cuando el administrador responda.
-                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRetry}
+                                className="mt-2 text-xs text-gray-600 border-gray-300 hover:bg-gray-50"
+                            >
+                                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                                Cancelar / Volver a intentar
+                            </Button>
                         </div>
+                    )}
 
-                        <Button
-                            variant="outline"
-                            onClick={handleCancelOrRetry}
-                            className="w-full text-slate-600 hover:text-slate-900 border-slate-300"
+                    {/* VIEW: ERROR */}
+                    {view === "error" && (
+                        <div className="py-4 flex flex-col items-center justify-center text-center space-y-4">
+                            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-medium text-gray-800">
+                                    {errorMessage || "No se pudo completar el ingreso"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Verifica que el código del canal sea correcto o consulta con tu administrador.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleRetry}
+                                className="w-full bg-[#0095e0] hover:bg-[#0095e0]/90 text-white font-semibold text-xs h-9"
+                            >
+                                Intentar nuevamente
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* APPROVED SESSION FALLBACK BUTTON: "Ya tienes acceso" */}
+                    {isApproved && view === "form" && (
+                        <div className="pt-2 border-t border-gray-100">
+                            <Button
+                                type="button"
+                                onClick={connectApprovedSession}
+                                disabled={isConnectingApproved}
+                                className="w-full h-10 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white border-none animate-pulse transition-all flex items-center justify-center gap-2 shadow-md text-xs cursor-pointer"
+                            >
+                                {isConnectingApproved ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                        <span>Conectando sesión...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 text-white" />
+                                        <span>Ya tienes acceso - Entrar ahora</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* Link to Admin Login */}
+                    <div className="pt-4 text-center">
+                        <Link
+                            href="/login/admin"
+                            className="inline-flex items-center text-xs font-medium text-gray-500 hover:text-[#0095e0] transition-colors group"
                         >
-                            Cancelar Solicitud
-                        </Button>
+                            <span>Ingresar como Admin</span>
+                            <span className="ml-1 group-hover:translate-x-0.5 transition-transform">→</span>
+                        </Link>
                     </div>
-                )}
-
-                {view === "error" && (
-                    <div className="flex flex-col items-center justify-center py-4 space-y-4 text-center">
-                        <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-red-500">
-                            <AlertCircle className="w-10 h-10" />
-                        </div>
-
-                        <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 font-medium">
-                            {errorMessage || "Tu solicitud fue rechazada por el administrador."}
-                        </p>
-
-                        <Button
-                            onClick={handleCancelOrRetry}
-                            className="w-full bg-[#0095e0] hover:bg-[#007bb8] transition-colors"
-                        >
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Intentar de nuevo
-                        </Button>
-                    </div>
-                )}
-
-                <div className="mt-6 text-center text-sm">
-                    <Link
-                        href="/login/admin"
-                        onClick={() => setIsLoading(true)}
-                        className="text-[#0095e0] hover:underline font-medium"
-                    >
-                        Ingresar como Admin &rarr;
-                    </Link>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
     )
 }

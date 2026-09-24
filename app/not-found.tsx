@@ -1,10 +1,26 @@
 "use client"
 
-import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuthStore } from "@/lib/store/useAuthStore"
+import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
 import { Button } from "@/components/ui/button"
 import { MoveLeft, HelpCircle } from "lucide-react"
 
 export default function NotFound() {
+    const router = useRouter()
+    const { user, role } = useAuthStore()
+
+    const handleReturn = () => {
+        const hasAyudanteToken = typeof window !== "undefined" && Boolean(AyudanteStorageService.getSessionToken())
+        const hasActiveSession = Boolean(user && (role === "admin" || role === "ayudante")) || hasAyudanteToken
+
+        if (hasActiveSession) {
+            router.push("/monitor")
+        } else {
+            router.push("/login")
+        }
+    }
+
     return (
         <div className="min-h-screen bg-[#f0f4f8] flex flex-col items-center justify-center p-4">
             <div className="max-w-md w-full text-center space-y-8">
@@ -29,13 +45,11 @@ export default function NotFound() {
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                     <Button
-                        asChild
-                        className="bg-[#0095e0] hover:bg-[#007bb8] text-white px-8 py-6 text-lg rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105"
+                        onClick={handleReturn}
+                        className="bg-[#0095e0] hover:bg-[#007bb8] text-white px-8 py-6 text-lg rounded-xl shadow-lg shadow-blue-500/20 transition-all hover:scale-105 cursor-pointer"
                     >
-                        <Link href="/">
-                            <MoveLeft className="mr-2 h-5 w-5" />
-                            Volver al Inicio
-                        </Link>
+                        <MoveLeft className="mr-2 h-5 w-5" />
+                        Volver al Inicio
                     </Button>
                 </div>
 

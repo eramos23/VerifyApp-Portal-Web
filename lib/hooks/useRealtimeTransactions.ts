@@ -89,3 +89,6 @@ export function useRealtimeTransactions(adminId: string | undefined, onData: (da
 
     return { isConnected }
 }
+
+export { useRealtimeAyudanteTransactions } from "./useRealtimeAyudanteTransactions"
+
