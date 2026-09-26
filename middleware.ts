@@ -55,17 +55,22 @@ export async function middleware(request: NextRequest) {
     )
 
     const { data: { user } } = await supabase.auth.getUser()
+    const ayudanteSession = request.cookies.get('ayudante_session')
+    const hasSession = !!user || !!ayudanteSession
 
     // Protected routes logic
     const path = request.nextUrl.pathname
-    console.log(`[Middleware] Path: ${path}, User: ${user?.id}`)
+    console.log(`[Middleware] Path: ${path}, User: ${user?.id}, AyudanteSession: ${!!ayudanteSession}`)
 
-    // Admin/Ayudante routes
+    // If user has an active session and tries to access login or root pages, redirect to /monitor
+    if ((path === '/' || path.startsWith('/login')) && hasSession) {
+        return NextResponse.redirect(new URL('/monitor', request.url))
+    }
+
+    // Admin/Ayudante routes protection
     if (path.startsWith('/monitor')) {
-        const ayudanteSession = request.cookies.get('ayudante_session')
-
-        if (!user && !ayudanteSession) {
-            return NextResponse.redirect(new URL('/login/admin', request.url))
+        if (!hasSession) {
+            return NextResponse.redirect(new URL('/login', request.url))
         }
     }
 

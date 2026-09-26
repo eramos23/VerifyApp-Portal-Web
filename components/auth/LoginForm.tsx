@@ -159,8 +159,20 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
 
     return (
         <Card className="w-[400px] border-none shadow-xl bg-white">
-            <CardHeader className="space-y-1 flex flex-col items-center">
-                <div className="relative w-40 h-40 mb-1">
+            <CardHeader className="space-y-0.5 flex flex-col items-center pb-3">
+                {/* Imagen Login (Admin / Ayudante) Grande Encima del Logo */}
+                <div className="relative w-full max-w-xs h-36 sm:h-44 mb-1">
+                    <Image
+                        src={role === 'ayudante' ? '/assets/img/login_ayudante.webp' : '/assets/img/login_admin.webp'}
+                        alt={`Ilustración Login ${role}`}
+                        fill
+                        className="object-contain"
+                        priority
+                    />
+                </div>
+
+                {/* Logo de VerifyApp (Pegado al título) */}
+                <div className="relative w-44 h-10 sm:h-12 -mb-1">
                     <Image
                         src="/logo.png"
                         alt="Logo"
@@ -169,8 +181,11 @@ export function LoginForm({ role: initialRole = "admin", title, description, all
                         priority
                     />
                 </div>
-                <CardTitle className="text-2xl font-bold text-center text-[#0095e0]">{title || "Iniciar Sesión"}</CardTitle>
-                <CardDescription className="text-center">
+
+                <CardTitle className="text-lg sm:text-xl font-extrabold text-center text-[#0095e0] -mt-0.5">
+                    {title || "Iniciar Sesión"}
+                </CardTitle>
+                <CardDescription className="text-center text-xs">
                     {description || "Selecciona tu rol para ingresar al sistema"}
                 </CardDescription>
             </CardHeader>

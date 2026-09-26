@@ -15,7 +15,7 @@ export default function DashboardWrapper({ children }: { children: React.ReactNo
     if (!mounted) return null
 
     return (
-        <main className="h-full min-h-screen bg-[#f0f4f8] dark:bg-slate-900">
+        <main className="h-full min-h-screen bg-[#f4fbfd] dark:bg-slate-900">
             {children}
         </main>
     )

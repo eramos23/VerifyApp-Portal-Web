@@ -108,4 +108,12 @@ export class AyudanteStorageService {
         if (typeof window === "undefined") return ""
         return localStorage.getItem(this.AYUDANTE_ID_KEY) || ""
     }
+
+    /**
+     * Obtiene el nombre del ayudante.
+     */
+    static getNombre(): string {
+        if (typeof window === "undefined") return ""
+        return localStorage.getItem(this.NOMBRE_KEY) || ""
+    }
 }

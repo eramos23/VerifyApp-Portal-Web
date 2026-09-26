@@ -1,18 +1,39 @@
 "use client"
 
+import { useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ShieldCheck, Radio, ArrowRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useLoadingStore } from "@/lib/store/useLoadingStore"
-import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
+import { checkSession } from "@/app/actions/session"
+import { setAyudanteSessionCookie } from "@/app/actions/auth"
 
 export default function LoginPage() {
     const { setIsLoading } = useLoadingStore()
+    const router = useRouter()
 
     useEffect(() => {
         setIsLoading(false)
-    }, [setIsLoading])
+
+        const verifyAndRedirect = async () => {
+            const helperToken = AyudanteStorageService.getSessionToken()
+            if (helperToken) {
+                await setAyudanteSessionCookie()
+                router.replace('/monitor')
+                return
+            }
+
+            const session = await checkSession()
+            if (session.isAuthenticated) {
+                router.replace('/monitor')
+            }
+        }
+
+        verifyAndRedirect()
+    }, [router, setIsLoading])
 
     const handleCardClick = () => {
         setIsLoading(true)
@@ -21,8 +42,20 @@ export default function LoginPage() {
     return (
         <div className="flex flex-col items-center justify-center w-full max-w-lg px-4 py-4 mx-auto">
             {/* Header Section */}
-            <div className="flex flex-col items-center mb-6 text-center space-y-2">
-                <div className="relative w-24 h-24 mb-1">
+            <div className="flex flex-col items-center mb-5 text-center space-y-1">
+                {/* Imagen Login Ilustración (Encima del logo - 10% más grande) */}
+                <div className="relative w-full max-w-lg h-52 sm:h-40">
+                    <Image
+                        src="/assets/img/imagen_login.webp"
+                        alt="Ilustración Login VerifyApp"
+                        fill
+                        className="object-contain"
+                        priority
+                    />
+                </div>
+
+                {/* Logo de VerifyApp (Ajustado sin relleno excesivo) */}
+                <div className="relative w-48 h-12 sm:w-56 sm:h-12 -mb-1">
                     <Image
                         src="/logo.png"
                         alt="VerifyApp Logo"
@@ -31,8 +64,9 @@ export default function LoginPage() {
                         priority
                     />
                 </div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                    VerifyApp <span className="text-[#0095e0]">Monitor</span>
+
+                <h1 className="text-xl sm:text-2xl font-extrabold text-[#0095e0] tracking-tight">
+                    Monitor
                 </h1>
                 <p className="text-slate-500 text-xs sm:text-sm">
                     Selecciona tu modalidad para continuar

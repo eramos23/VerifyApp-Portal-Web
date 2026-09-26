@@ -26,6 +26,7 @@ import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
 import { useAuthStore } from "@/lib/store/useAuthStore"
 import { useLoadingStore } from "@/lib/store/useLoadingStore"
 import { setAyudanteSessionCookie } from "@/app/actions/auth"
+import { checkSession } from "@/app/actions/session"
 import { supabase } from "@/lib/supabase/client"
 
 const formSchema = z.object({
@@ -68,6 +69,20 @@ export function AyudanteLoginForm() {
         setIsLoading(false)
 
         const checkIfApproved = async () => {
+            // 1. Check if token or session already active
+            const helperToken = AyudanteStorageService.getSessionToken()
+            if (helperToken) {
+                await setAyudanteSessionCookie()
+                router.replace('/monitor')
+                return
+            }
+
+            const session = await checkSession()
+            if (session.isAuthenticated) {
+                router.replace('/monitor')
+                return
+            }
+
             const deviceId = AyudanteStorageService.getDeviceId()
             if (!deviceId) return
 
@@ -278,8 +293,20 @@ export function AyudanteLoginForm() {
 
     return (
         <Card className="w-[400px] border-none shadow-xl bg-white">
-            <CardHeader className="space-y-1 flex flex-col items-center">
-                <div className="relative w-40 h-40 mb-1">
+            <CardHeader className="space-y-0.5 flex flex-col items-center pb-3">
+                {/* Imagen Login Ayudante Grande Encima del Logo */}
+                <div className="relative w-full max-w-xs h-36 sm:h-44 mb-1">
+                    <Image
+                        src="/assets/img/login_ayudante.webp"
+                        alt="Ilustración Login Ayudante"
+                        fill
+                        className="object-contain"
+                        priority
+                    />
+                </div>
+
+                {/* Logo de VerifyApp (Pegado al título) */}
+                <div className="relative w-44 h-10 sm:h-12 -mb-1">
                     <Image
                         src="/logo.png"
                         alt="Logo"
@@ -288,8 +315,11 @@ export function AyudanteLoginForm() {
                         priority
                     />
                 </div>
-                <CardTitle className="text-2xl font-bold text-center text-[#0095e0]">Ayudante</CardTitle>
-                <CardDescription className="text-center">
+
+                <CardTitle className="text-lg sm:text-xl font-extrabold text-center text-[#0095e0] -mt-0.5">
+                    Ayudante
+                </CardTitle>
+                <CardDescription className="text-center text-xs">
                     {view === "form" && "Ingresa tus datos y el código proporcionado por el administrador"}
                     {view === "waiting" && "Tu solicitud fue enviada correctamente"}
                     {view === "error" && "Ocurrió un problema con tu solicitud de ingreso"}

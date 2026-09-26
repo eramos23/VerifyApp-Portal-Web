@@ -48,7 +48,8 @@ import {
     Activity,
     Home,
     User,
-    ShieldCheck
+    ShieldCheck,
+    CheckCircle2
 } from "lucide-react"
 
 export function AdminMonitorPanel() {
@@ -79,6 +80,9 @@ export function AdminMonitorPanel() {
     const [queryParams, setQueryParams] = useState({ start: today, end: today })
     const [desktopNotifications, setDesktopNotifications] = useState(false)
     const [isExportWarningOpen, setIsExportWarningOpen] = useState(false)
+    const [isConfigOpen, setIsConfigOpen] = useState(false)
+    const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+    const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
 
     // Admin ID
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -208,10 +212,6 @@ export function AdminMonitorPanel() {
         setSoundEnabled(enabled)
         localStorage.setItem('soundEnabled', String(enabled))
     }
-
-    // Modals state
-    const [isConfigOpen, setIsConfigOpen] = useState(false)
-    const [isLogoutOpen, setIsLogoutOpen] = useState(false)
 
     const handleLogout = async () => {
         setIsLogoutOpen(false)
@@ -346,13 +346,17 @@ export function AdminMonitorPanel() {
         return sum + amount
     }, 0).toFixed(2)
 
+    // Check if filter dates are both today
+    const isTodaySelected = startDate === today && endDate === today
+    const dateLabel = isTodaySelected ? "Pagos de hoy" : "Pagos de la fecha"
+
     // Business Name display
     const businessName = profileConfig.nombre_negocio || profileConfig.nombre || "Empresa"
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userEmail = (user as any)?.email || "admin@empresa.com"
 
     return (
-        <div className="min-h-screen bg-[#f3f6fa] pb-16 font-sans text-slate-800">
+        <div className="min-h-screen bg-[#f4fbfd] pb-16 font-sans text-slate-800">
             {/* Header / Barra de Navegación Superior */}
             <header className="bg-white border-b border-slate-200/80 px-4 sm:px-8 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-2xs">
                 {/* Brand Logo & Subtitle */}
@@ -385,20 +389,64 @@ export function AdminMonitorPanel() {
 
                     <div className="hidden sm:block h-6 w-[1px] bg-slate-200" />
 
-                    {/* Profile User Badge */}
-                    <div className="flex items-center gap-2.5 pl-1">
-                        <div className="w-8 h-8 rounded-full bg-[#0095e0] text-white flex items-center justify-center font-bold shadow-2xs">
-                            <User className="h-4 w-4" />
-                        </div>
-                        <div className="hidden md:flex flex-col text-left">
-                            <span className="text-xs font-bold text-slate-800 leading-tight">
-                                {userEmail}
-                            </span>
-                            <span className="text-[10px] font-semibold text-[#0095e0]">
-                                Administrador
-                            </span>
-                        </div>
-                        <ChevronDown className="h-4 w-4 text-slate-400 hidden sm:block" />
+                    {/* Profile User Badge with Options Trigger */}
+                    <div className="relative">
+                        <button 
+                            type="button"
+                            onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
+                            className="flex items-center gap-2 pl-1 focus:outline-none cursor-pointer group"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-[#0095e0] text-white flex items-center justify-center font-bold shadow-2xs group-hover:scale-105 transition-transform">
+                                <User className="h-4 w-4" />
+                            </div>
+                            <div className="hidden md:flex flex-col text-left">
+                                <span className="text-xs font-bold text-slate-800 leading-tight">
+                                    {userEmail}
+                                </span>
+                                <span className="text-[10px] font-semibold text-[#0095e0]">
+                                    Administrador
+                                </span>
+                            </div>
+                            <div className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
+                                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isHeaderMenuOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                        </button>
+
+                        {/* Dropdown Menu al hacer click en el icono al costado del correo */}
+                        {isHeaderMenuOpen && (
+                            <>
+                                <div 
+                                    className="fixed inset-0 z-40" 
+                                    onClick={() => setIsHeaderMenuOpen(false)} 
+                                />
+
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-lg border border-slate-100 py-1.5 z-50 animate-in fade-in-50 zoom-in-95">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsHeaderMenuOpen(false)
+                                            setIsConfigOpen(true)
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer transition-colors"
+                                    >
+                                        <Settings className="h-4 w-4 text-[#0095e0]" />
+                                        <span>Configuración</span>
+                                    </button>
+                                    <div className="my-1 border-t border-slate-100" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIsHeaderMenuOpen(false)
+                                            setIsLogoutOpen(true)
+                                        }}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 cursor-pointer transition-colors"
+                                    >
+                                        <LogOut className="h-4 w-4 text-rose-600" />
+                                        <span>Cerrar Sesión</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -407,31 +455,37 @@ export function AdminMonitorPanel() {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
 
                 {/* Hero Banner Pastel Blue */}
-                <div className="bg-gradient-to-r from-[#eef5ff] via-[#e8f1fd] to-[#e4eefd] rounded-3xl p-0 border border-blue-100/90 shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
-                    {/* Left text section */}
-                    <div className="space-y-2 max-w-xl z-10 p-4 sm:p-5 md:pr-0">
-                        <div className="inline-flex items-center gap-1.5 bg-white/80 backdrop-blur-xs text-[#0095e0] font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-blue-200/60 shadow-2xs">
-                            <Home className="h-3 w-3" />
-                            <span>PANEL DE ADMINISTRADOR</span>
+                <div className="bg-[#f0f9ff] rounded-3xl p-0 border border-blue-100/90 shadow-2xs relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+                    {/* Left text section with Wallet Icon & Payment Stats */}
+                    <div className="z-10 py-2.5 px-4 sm:py-3 sm:px-6 flex items-center gap-4 sm:gap-6">
+                        {/* Rounded square box with primary color */}
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] sm:rounded-[22px] bg-[#0095e0] text-white flex items-center justify-center shrink-0 shadow-md shadow-[#0095e0]/25">
+                            <Wallet className="h-7 w-7 sm:h-8 sm:w-8 stroke-[2]" />
                         </div>
-                        
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-[#0f172a] tracking-tight">
-                            {businessName}
-                        </h1>
 
-                        <p className="text-slate-500 font-medium text-xs leading-relaxed">
-                            Controla en tiempo real tus ventas, reportes y transacciones tus billeteras dijitales.
-                        </p>
+                        {/* Information stack */}
+                        <div className="space-y-0.5">
+                            <p className="text-slate-500 font-medium text-xs sm:text-sm">
+                                {dateLabel}
+                            </p>
+                            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0f172a] tracking-tight">
+                                S/ {totalAmount}
+                            </h2>
+                            <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-xs sm:text-sm">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500 text-white" />
+                                <span>{transactions.length} pagos confirmados</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Right side Image Banner */}
-                    <div className="relative z-10 w-full md:w-auto self-stretch flex items-center justify-center md:justify-end">
-                        <div className="relative w-full md:w-[360px] lg:w-[410px] h-32 sm:h-36 md:h-full min-h-[130px] sm:min-h-[145px]">
+                    {/* Right side Image Banner (Desplazado más a la izquierda) */}
+                    <div className="relative z-10 w-full md:w-auto self-stretch flex items-center justify-center md:justify-start md:pr-16 lg:pr-28 md:pl-4">
+                        <div className="relative w-full md:w-[320px] lg:w-[360px] h-24 sm:h-28 md:h-full min-h-[100px] sm:min-h-[110px]">
                             <Image
-                                src="/assets/img/banner-pago-recibido.png"
+                                src="/assets/img/banner_monitor.webp"
                                 alt="Tu negocio siempre al día"
                                 fill
-                                className="object-contain object-center md:object-right"
+                                className="object-contain object-center"
                                 priority
                             />
                         </div>
@@ -469,96 +523,25 @@ export function AdminMonitorPanel() {
                     </div>
                 )}
 
-                {/* Cards de Métricas de Hoy (Purple & Green cards) - 2 Columnas en Móvil y Escritorio */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                    
-                    {/* Card 1: Ventas de Hoy (Purple Theme) */}
-                    <div className="bg-[#fcfaff] rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-purple-100/90 shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col justify-between relative overflow-hidden">
-                        <div className="space-y-1 z-10">
-                            <div className="flex items-center gap-1.5 sm:gap-2.5">
-                                <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-[#8b5cf6] text-white flex items-center justify-center shadow-sm shadow-purple-500/20 shrink-0">
-                                    <Wallet className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
-                                </div>
-                                <span className="text-[10px] sm:text-xs font-extrabold tracking-wider uppercase text-slate-500 truncate">
-                                    Ventas de hoy
-                                </span>
-                            </div>
-
-                            <div className="pt-0.5">
-                                <p className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-                                    S/ {totalAmount}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-1 text-[#10b981] text-[9px] sm:text-[11px] font-bold pt-0.5">
-                                <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-                                <span className="truncate">Monto total acumulado</span>
-                            </div>
-                        </div>
-
-                        {/* Sparkline Wave Line Decorative */}
-                        <div className="absolute right-2 bottom-2 opacity-30 pointer-events-none hidden sm:block">
-                            <svg className="w-16 h-8 text-purple-400" viewBox="0 0 100 40" fill="none">
-                                <path d="M0 30 Q 25 35, 50 15 T 100 5" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-                            </svg>
-                        </div>
-                    </div>
-
-                    {/* Card 2: Pagos Registrados (Green Theme) */}
-                    <div className="bg-[#f6fbf8] rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-emerald-100/90 shadow-2xs hover:shadow-xs transition-all duration-200 flex flex-col justify-between relative overflow-hidden">
-                        <div className="space-y-1 z-10">
-                            <div className="flex items-center gap-1.5 sm:gap-2.5">
-                                <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-[#10b981] text-white flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
-                                    <Receipt className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
-                                </div>
-                                <span className="text-[10px] sm:text-xs font-extrabold tracking-wider uppercase text-slate-500 truncate">
-                                    Pagos registrados
-                                </span>
-                            </div>
-
-                            <div className="pt-0.5">
-                                <p className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-                                    {transactions.length} <span className="text-xs sm:text-xs font-semibold text-slate-500">pagos</span>
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-1 text-[#10b981] text-[9px] sm:text-[11px] font-bold pt-0.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] shrink-0" />
-                                <span className="truncate">Notificaciones recibidas</span>
-                            </div>
-                        </div>
-
-                        {/* Bar Chart Decorative */}
-                        <div className="absolute right-2 bottom-2 opacity-30 pointer-events-none hidden sm:block">
-                            <div className="flex items-end gap-1 h-6">
-                                <div className="w-1.5 h-2.5 bg-emerald-300 rounded-xs" />
-                                <div className="w-1.5 h-4 bg-emerald-400 rounded-xs" />
-                                <div className="w-1.5 h-6 bg-emerald-500 rounded-xs" />
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
                 {/* Filters Card (Admin Only Option) */}
                 {profileConfig.showSearchFilter && (
                     <div className="bg-white rounded-3xl border border-slate-200/80 shadow-2xs overflow-hidden">
-                        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
-                            <span className="font-extrabold text-slate-800 text-sm sm:text-base flex items-center gap-2">
-                                <Search className="h-4 w-4 text-[#0095e0]" />
+                        <div className="py-2.5 px-4 sm:py-3 sm:px-5 border-b border-slate-100 flex items-center justify-between">
+                            <span className="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                                <Search className="h-3.5 w-3.5 text-[#0095e0]" />
                                 Filtros de Búsqueda por Rango de Fechas
                             </span>
                             <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                                className="h-8 w-8 p-0 rounded-xl"
+                                className="h-7 w-7 p-0 rounded-xl"
                             >
                                 {isFiltersOpen ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
                             </Button>
                         </div>
                         {isFiltersOpen && (
-                            <div className="p-4 sm:p-6 bg-slate-50/40">
+                            <div className="py-2.5 px-4 sm:py-3.5 sm:px-5 bg-slate-50/40">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-end">
                                     <div className="space-y-1.5">
                                         <Label htmlFor="start-date" className="text-xs font-bold text-slate-700">Fecha Inicio</Label>
@@ -661,35 +644,6 @@ export function AdminMonitorPanel() {
                     />
                 </div>
             </main>
-
-            {/* Floating Action Button (FAB) & Menu */}
-            <div className="fixed bottom-6 right-6 z-50 group">
-                <div className="absolute bottom-full right-0 pb-3 flex flex-col gap-2.5 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto transform translate-y-2 group-hover:translate-y-0">
-                    <Button
-                        variant="secondary"
-                        className="shadow-md bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold rounded-xl px-4 py-2.5 flex items-center gap-2 cursor-pointer transition-all"
-                        onClick={() => setIsConfigOpen(true)}
-                    >
-                        <Settings className="h-4 w-4 text-[#0095e0]" />
-                        <span>Configuración</span>
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        className="shadow-md bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl px-4 py-2.5 flex items-center gap-2 cursor-pointer transition-all"
-                        onClick={() => setIsLogoutOpen(true)}
-                    >
-                        <LogOut className="h-4 w-4" />
-                        <span>Cerrar Sesión</span>
-                    </Button>
-                </div>
-
-                <Button 
-                    size="icon" 
-                    className="h-14 w-14 rounded-full shadow-lg bg-[#0095e0] hover:bg-[#0084c7] text-white transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
-                >
-                    <MoreVertical className="h-6 w-6" />
-                </Button>
-            </div>
 
             {/* Modal de Configuración */}
             <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
