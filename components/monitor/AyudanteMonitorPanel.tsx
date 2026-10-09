@@ -43,11 +43,14 @@ import {
     Search,
     CheckCircle2,
     User,
-    ChevronDown
+    ChevronDown,
+    Mic,
+    MicOff
 } from "lucide-react"
 
 import { AyudanteStorageService } from "@/lib/services/ayudante-storage.service"
 import { AyudanteAuthService } from "@/lib/services/ayudante-auth.service"
+import { SpeechService } from "@/lib/services/speech.service"
 
 export function AyudanteMonitorPanel() {
     const { user, logout } = useAuthStore()
@@ -58,7 +61,8 @@ export function AyudanteMonitorPanel() {
     const [transactions, setTransactions] = useState<NotificationItem[]>([])
     const [rawTransactions, setRawTransactions] = useState<Transaction[]>([])
     const [tableSearchQuery, setTableSearchQuery] = useState("")
-    const [soundEnabled, setSoundEnabled] = useState(false)
+    const [speechEnabled, setSpeechEnabled] = useState(false)
+    const [isSpeechSupported, setIsSpeechSupported] = useState(true)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
     const [desktopNotifications, setDesktopNotifications] = useState(false)
     const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false)
@@ -184,9 +188,12 @@ export function AyudanteMonitorPanel() {
                     }
                 }
 
-                if (soundEnabled) {
-                    const audio = new Audio('/audio/yape_sonido.mp3')
-                    audio.play().catch(e => console.error("Audio play failed", e))
+                if (speechEnabled) {
+                    SpeechService.anunciarPago(
+                        mappedTransaction.nombre,
+                        mappedTransaction.monto,
+                        mappedTransaction.moneda
+                    )
                 }
 
                 toast.success(`Nueva transacción: ${mappedTransaction.moneda} ${mappedTransaction.monto}`)
@@ -203,17 +210,50 @@ export function AyudanteMonitorPanel() {
         }
     )
 
-    // Cargar preferencia de sonido desde localStorage
+    // Cargar preferencia de sonido y soporte de SpeechSynthesis desde localStorage
     useEffect(() => {
-        const savedSound = localStorage.getItem('soundEnabled')
-        if (savedSound !== null) {
-            setSoundEnabled(savedSound === 'true')
+        const supported = SpeechService.isSupported()
+        setIsSpeechSupported(supported)
+
+        const savedSpeech = localStorage.getItem('speechEnabled')
+        if (savedSpeech !== null && supported) {
+            setSpeechEnabled(savedSpeech === 'true')
+        } else {
+            setSpeechEnabled(false)
+        }
+
+        const savedDesktop = localStorage.getItem('desktopNotifications')
+        if (savedDesktop !== null) {
+            setDesktopNotifications(savedDesktop === 'true')
         }
     }, [])
 
-    const handleSoundChange = (enabled: boolean) => {
-        setSoundEnabled(enabled)
-        localStorage.setItem('soundEnabled', String(enabled))
+    const handleSpeechChange = async (enabled: boolean) => {
+        if (!isSpeechSupported) {
+            toast.error("Su navegador no soporta la síntesis de voz.")
+            return
+        }
+
+        if (enabled) {
+            const perm = await SpeechService.requestAudioPermission()
+            if (!perm.success) {
+                setSpeechEnabled(false)
+                localStorage.setItem('speechEnabled', 'false')
+                toast.error(perm.message || "Debe habilitar el sonido del navegador para activar el Lector de voz.")
+                return
+            }
+
+            setSpeechEnabled(true)
+            localStorage.setItem('speechEnabled', 'true')
+            toast.success("Lector de voz activado correctamente")
+        } else {
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel()
+            }
+            setSpeechEnabled(false)
+            localStorage.setItem('speechEnabled', 'false')
+            toast.info("Lector de voz desactivado")
+        }
     }
 
     // Estados para Modales
@@ -466,24 +506,6 @@ export function AyudanteMonitorPanel() {
                     </DialogHeader>
 
                     <div className="py-4 space-y-5">
-                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700">
-                                    {soundEnabled ? <Volume2 className="h-5 w-5 text-emerald-600" /> : <VolumeX className="h-5 w-5 text-slate-400" />}
-                                </div>
-                                <div>
-                                    <Label htmlFor="sound-mode" className="cursor-pointer font-bold text-slate-800 text-sm">
-                                        Efecto de Sonido
-                                    </Label>
-                                    <p className="text-xs text-slate-500">Reproduce un tono al recibir notificaciones</p>
-                                </div>
-                            </div>
-                            <Switch
-                                id="sound-mode"
-                                checked={soundEnabled}
-                                onCheckedChange={handleSoundChange}
-                            />
-                        </div>
 
                         <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
                             <div className="flex items-center space-x-3">
@@ -501,6 +523,38 @@ export function AyudanteMonitorPanel() {
                                 id="desktop-mode"
                                 checked={desktopNotifications}
                                 onCheckedChange={toggleDesktopNotifications}
+                            />
+                        </div>
+
+                        {/* Lector de Voz */}
+                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700">
+                                    {speechEnabled ? <Mic className="h-5 w-5 text-purple-600" /> : <MicOff className="h-5 w-5 text-slate-400" />}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="speech-mode" className={`font-bold text-sm ${isSpeechSupported ? 'cursor-pointer text-slate-800' : 'text-slate-400'}`}>
+                                            Lector de voz
+                                        </Label>
+                                        {!isSpeechSupported && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                                                No compatible
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        {isSpeechSupported 
+                                            ? "Lee en voz alta las notificaciones de pago recibidas"
+                                            : "Su navegador no soporta la síntesis de voz."}
+                                    </p>
+                                </div>
+                            </div>
+                            <Switch
+                                id="speech-mode"
+                                checked={speechEnabled}
+                                disabled={!isSpeechSupported}
+                                onCheckedChange={handleSpeechChange}
                             />
                         </div>
                     </div>

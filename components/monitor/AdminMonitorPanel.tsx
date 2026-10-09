@@ -49,8 +49,11 @@ import {
     Home,
     User,
     ShieldCheck,
-    CheckCircle2
+    CheckCircle2,
+    Mic,
+    MicOff
 } from "lucide-react"
+import { SpeechService } from "@/lib/services/speech.service"
 
 export function AdminMonitorPanel() {
     const { user, logout } = useAuthStore()
@@ -61,7 +64,8 @@ export function AdminMonitorPanel() {
     const [transactions, setTransactions] = useState<NotificationItem[]>([])
     const [rawTransactions, setRawTransactions] = useState<Transaction[]>([])
     const [tableSearchQuery, setTableSearchQuery] = useState("")
-    const [soundEnabled, setSoundEnabled] = useState(false)
+    const [speechEnabled, setSpeechEnabled] = useState(false)
+    const [isSpeechSupported, setIsSpeechSupported] = useState(true)
     const [highlightedId, setHighlightedId] = useState<string | null>(null)
     const [isFiltersOpen, setIsFiltersOpen] = useState(true)
     const [profileConfig, setProfileConfig] = useState<{ nombre: string, nombre_negocio: string, showSearchFilter: boolean }>({ nombre: '', nombre_negocio: '', showSearchFilter: true })
@@ -179,14 +183,12 @@ export function AdminMonitorPanel() {
                 }
             }
 
-            if (soundEnabled) {
-                const audio = new Audio('/audio/yape_sonido.mp3')
-                audio.play().catch(e => {
-                    console.error("Audio play failed", e)
-                    if (e.name === 'NotAllowedError') {
-                        toast.warning("Haga clic en la página para habilitar el sonido de notificaciones")
-                    }
-                })
+            if (speechEnabled) {
+                SpeechService.anunciarPago(
+                    mappedTransaction.nombre,
+                    mappedTransaction.monto,
+                    mappedTransaction.moneda
+                )
             }
 
             toast.success(`Nueva transacción: ${mappedTransaction.moneda} ${mappedTransaction.monto}`)
@@ -195,11 +197,16 @@ export function AdminMonitorPanel() {
         }
     })
 
-    // Load preference from localStorage
+    // Load preference from localStorage & Speech support check
     useEffect(() => {
-        const savedSound = localStorage.getItem('soundEnabled')
-        if (savedSound !== null) {
-            setSoundEnabled(savedSound === 'true')
+        const supported = SpeechService.isSupported()
+        setIsSpeechSupported(supported)
+
+        const savedSpeech = localStorage.getItem('speechEnabled')
+        if (savedSpeech !== null && supported) {
+            setSpeechEnabled(savedSpeech === 'true')
+        } else {
+            setSpeechEnabled(false)
         }
 
         const savedDesktop = localStorage.getItem('desktopNotifications')
@@ -208,9 +215,32 @@ export function AdminMonitorPanel() {
         }
     }, [])
 
-    const handleSoundChange = (enabled: boolean) => {
-        setSoundEnabled(enabled)
-        localStorage.setItem('soundEnabled', String(enabled))
+    const handleSpeechChange = async (enabled: boolean) => {
+        if (!isSpeechSupported) {
+            toast.error("Su navegador no soporta la síntesis de voz.")
+            return
+        }
+
+        if (enabled) {
+            const perm = await SpeechService.requestAudioPermission()
+            if (!perm.success) {
+                setSpeechEnabled(false)
+                localStorage.setItem('speechEnabled', 'false')
+                toast.error(perm.message || "Debe habilitar el sonido del navegador para activar el Lector de voz.")
+                return
+            }
+
+            setSpeechEnabled(true)
+            localStorage.setItem('speechEnabled', 'true')
+            toast.success("Lector de voz activado correctamente")
+        } else {
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                window.speechSynthesis.cancel()
+            }
+            setSpeechEnabled(false)
+            localStorage.setItem('speechEnabled', 'false')
+            toast.info("Lector de voz desactivado")
+        }
     }
 
     const handleLogout = async () => {
@@ -659,24 +689,6 @@ export function AdminMonitorPanel() {
                     </DialogHeader>
 
                     <div className="py-4 space-y-5">
-                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700">
-                                    {soundEnabled ? <Volume2 className="h-5 w-5 text-emerald-600" /> : <VolumeX className="h-5 w-5 text-slate-400" />}
-                                </div>
-                                <div>
-                                    <Label htmlFor="sound-mode" className="cursor-pointer font-bold text-slate-800 text-sm">
-                                        Efecto de Sonido
-                                    </Label>
-                                    <p className="text-xs text-slate-500">Reproduce un tono al recibir notificaciones</p>
-                                </div>
-                            </div>
-                            <Switch
-                                id="sound-mode"
-                                checked={soundEnabled}
-                                onCheckedChange={handleSoundChange}
-                            />
-                        </div>
 
                         <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
                             <div className="flex items-center space-x-3">
@@ -694,6 +706,38 @@ export function AdminMonitorPanel() {
                                 id="desktop-mode"
                                 checked={desktopNotifications}
                                 onCheckedChange={toggleDesktopNotifications}
+                            />
+                        </div>
+
+                        {/* Lector de Voz */}
+                        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700">
+                                    {speechEnabled ? <Mic className="h-5 w-5 text-purple-600" /> : <MicOff className="h-5 w-5 text-slate-400" />}
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="speech-mode" className={`font-bold text-sm ${isSpeechSupported ? 'cursor-pointer text-slate-800' : 'text-slate-400'}`}>
+                                            Lector de voz
+                                        </Label>
+                                        {!isSpeechSupported && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                                                No compatible
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        {isSpeechSupported 
+                                            ? "Lee en voz alta las notificaciones de pago recibidas"
+                                            : "Su navegador no soporta la síntesis de voz."}
+                                    </p>
+                                </div>
+                            </div>
+                            <Switch
+                                id="speech-mode"
+                                checked={speechEnabled}
+                                disabled={!isSpeechSupported}
+                                onCheckedChange={handleSpeechChange}
                             />
                         </div>
                     </div>
